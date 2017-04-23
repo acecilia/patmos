@@ -91,10 +91,14 @@ object SdramController extends DeviceObject {
 class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int, 
   ocpAddrWidth: Int, ocpBurstLen : Int) extends BurstDevice(ocpAddrWidth) {
   override val io  = new BurstDeviceIO(ocpAddrWidth) with SdramController.Pins
-  private val cmd  = io.ocp.M.Cmd
-  private val high = Bits("b1")
-  private val low  = Bits("b0")
   
+  // Syntactic sugar
+  val ocpCmd  = io.ocp.M.Cmd
+  val slavePort = io.ocp.S
+  val ramOut = io.sdramControllerPins.ramOut
+  val high = Bits("b1")
+  val low  = Bits("b0")
+
   val state          = Reg(init = ControllerState.initStart) // Controller state
   val memoryCmd      = Reg(init = MemCmd.noOperation)
   val address        = Reg(init = Bits(0))
@@ -106,10 +110,6 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   
   // counter used for burst
   val counter = Reg(init = Bits(0))
-
-  // Syntactic sugar
-  val slavePort = io.ocp.S
-  val ramOut = io.sdramControllerPins.ramOut
 
   // Default assignemts to OCP slave signals
   slavePort.Resp       := OcpResp.NULL
@@ -146,7 +146,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
         refreshCounter := Bits(refreshRate)
         state := ControllerState.refresh
         
-    } .elsewhen (cmd === OcpCmd.RD) {
+    } .elsewhen (ocpCmd === OcpCmd.RD) {
 
         // Save address to later use
         address := io.ocp.M.Addr
@@ -167,7 +167,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
 
     }
     
-    .elsewhen (cmd === OcpCmd.WR) {
+    .elsewhen (ocpCmd === OcpCmd.WR) {
 
         // Save address to later use
         address := io.ocp.M.Addr
@@ -188,7 +188,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
 
     }
     
-    .elsewhen (cmd === OcpCmd.IDLE) {
+    .elsewhen (ocpCmd === OcpCmd.IDLE) {
 
         // Send Nop
         // Set next state to idle
