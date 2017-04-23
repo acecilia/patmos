@@ -33,8 +33,8 @@
 /*
  * SDRAM memory controller written in Chisel for the ALTDE2-115 board
  *  
- * Authors: Andres Cecilia Luque (a.cecilia.luque@gmail.com)
- *          Roman Birca (roman.birca@gmail.com)
+ * Authors: Andres Cecilia Luque  (a.cecilia.luque@gmail.com)
+ *          Roman Birca           (roman.birca@gmail.com)
  *
  */
 
@@ -46,9 +46,9 @@ import ocp._
 import patmos.Constants._
 
 object SdramController extends DeviceObject {
-  var sdramAddrWidth = 13
-  var sdramDataWidth = 32
-  var ocpAddrWidth   = 25
+  private var sdramAddrWidth = 13
+  private var sdramDataWidth = 32
+  private var ocpAddrWidth   = 25
 
   def init(params: Map[String, String]) = {
     sdramAddrWidth  = getPosIntParam(params, "sdramAddrWidth")
@@ -63,20 +63,26 @@ object SdramController extends DeviceObject {
   trait Pins {
     val sdramControllerPins = new Bundle {
       val ramOut = new Bundle {
-        val dq   = Bits(OUTPUT, width = sdramDataWidth)
-        val dqm  = Bits(OUTPUT, width = 4)
-        val addr = Bits(OUTPUT, width = sdramDataWidth)
-        val ba   = Bits(OUTPUT, width = 2)
-        val clk  = Bits(OUTPUT, width = 1)
-        val cke  = Bits(OUTPUT, width = 1)
-        val ras  = Bits(OUTPUT, width = 1)
-        val cas  = Bits(OUTPUT, width = 1)
-        val we   = Bits(OUTPUT, width = 1)
-        val cs   = Bits(OUTPUT, width = 1)
-        val dqEn = Bits(OUTPUT, width = 1)
+        // The total 128MB SDRAM is implemented using two 64MB SDRAM devices (page 64 of the DE2-115 manual)
+        val dq1  = Bits(OUTPUT, sdramDataWidth/2) 
+        val dq2  = Bits(OUTPUT, sdramDataWidth/2)
+        val dqm1 = Bits(OUTPUT, 2)
+        val dqm2 = Bits(OUTPUT, 2)
+
+        // Common signals for the two 64MB SDRAM devices
+        val addr = Bits(OUTPUT, sdramDataWidth)
+        val ba   = Bits(OUTPUT, 2)
+        val clk  = Bits(OUTPUT, 1)
+        val cke  = Bits(OUTPUT, 1)
+        val ras  = Bits(OUTPUT, 1)
+        val cas  = Bits(OUTPUT, 1)
+        val we   = Bits(OUTPUT, 1)
+        val cs   = Bits(OUTPUT, 1)
+        val dqEn = Bits(OUTPUT, 1)
       }
       val ramIn = new Bundle {
-        val dq    = Bits(INPUT, width = sdramAddrWidth)
+        val dq1   = Bits(INPUT, sdramDataWidth/2)
+        val dq2   = Bits(INPUT, sdramDataWidth/2)
       }
     }
   }
@@ -84,64 +90,53 @@ object SdramController extends DeviceObject {
 
 class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int, 
   ocpAddrWidth: Int, ocpBurstLen : Int) extends BurstDevice(ocpAddrWidth) {
-
-  override val io = new BurstDeviceIO(ocpAddrWidth) with SdramController.Pins
-  val cmd         = io.ocp.M.Cmd
+  override val io  = new BurstDeviceIO(ocpAddrWidth) with SdramController.Pins
+  private val cmd  = io.ocp.M.Cmd
+  private val high = Bits("b1")
+  private val low  = Bits("b0")
   
-  private val high = Bits(1)
-  private val low  = Bits(0)
-  
-  // Controller states
-  val idle :: write :: read :: init_start :: refresh :: init_precharge :: init_refresh :: init_register :: Nil = Enum(UInt(), 8)
-  val state = Reg(init = init_start);
-  val memoryCmd = Reg(init = MemCmd.noOperation);
-  val address = Reg(init = Bits(0))
-  val initCycles = (0.0001*CLOCK_FREQ).toInt // Calculate number of cycles for init from processor clock freq
-  val refreshRate = (0.064*CLOCK_FREQ).toInt
-  val thisManyTimes = 8192
-  val initCounter = Reg(init = Bits(initCycles))
+  val state          = Reg(init = ControllerState.initStart) // Controller state
+  val memoryCmd      = Reg(init = MemCmd.noOperation)
+  val address        = Reg(init = Bits(0))
+  val initCycles     = (0.0001*CLOCK_FREQ).toInt // Calculate number of cycles for init from processor clock freq
+  val refreshRate    = (0.064*CLOCK_FREQ).toInt
+  val thisManyTimes  = 8192
+  val initCounter    = Reg(init = Bits(initCycles))
   val refreshCounter = Reg(init = Bits(refreshRate))
   
   // counter used for burst
-  val counter = Reg(init = Bits(0));
+  val counter = Reg(init = Bits(0))
 
-  // default assignments
+  // Syntactic sugar
   val slavePort = io.ocp.S
   val ramOut = io.sdramControllerPins.ramOut
+
   // Default assignemts to OCP slave signals
   slavePort.Resp       := OcpResp.NULL
-  slavePort.CmdAccept  := Bits(1) 
-  slavePort.DataAccept := Bits(1)
-  slavePort.Data       := Bits(sdramDataWidth)
-  // Default assignemts to SdramController OUTPUT signals
-  ramOut.dqEn := Bits(1)
-  ramOut.dq   := Bits(sdramDataWidth)         
-  ramOut.dqm  := Bits(4)         
-  ramOut.addr := Bits(sdramDataWidth)         
-  ramOut.ba   := Bits(2)         
-  ramOut.clk  := Bits(1)         
-  ramOut.cke  := Bits(1)         
-  ramOut.ras  := Bits(1)         
-  ramOut.cas  := Bits(1)         
-  ramOut.we   := Bits(1)         
-  ramOut.cs   := Bits(1)
+  slavePort.CmdAccept  := low 
+  slavePort.DataAccept := low
+  slavePort.Data       := low
 
-  // We need to provide a default value for the full word in order to be able to do subword assignation. This is to avoid the "Subword assignment requires a default value to have been assigned" chisel error
-  io.sdramControllerPins.ramOut.addr := UInt(0)
+  // Default assignemts to SdramController output signals
+  ramOut.dqEn := low
+  ramOut.dq1  := low 
+  ramOut.dq2  := low        
+  ramOut.dqm1 := low 
+  ramOut.dqm2 := low      
+  ramOut.addr := low        
+  ramOut.ba   := low         
+  ramOut.clk  := low        
+  ramOut.cke  := low        
+  ramOut.ras  := low        
+  ramOut.cas  := low         
+  ramOut.we   := low        
+  ramOut.cs   := high
 
-  MemCmd.setToPins(memoryCmd,io)
-
-  // Examples of use of the encoder/decoder of memCmd. We just need to send orders to the memory, so the decode function may be not used in the future
-  // We need to provide a default value for the full word previous encoding in order to be able to do subword assignation. This is to avoid the "Subword assignment requires a default value to have been assigned" chisel error
-  //val memCmd = MemCmd.getFromPins(io)
-  //io.sdramControllerPins.ramOut.addr := UInt(34536)
-  //MemCmd.setToPins(MemCmd.read, io) 
-  
+  MemCmd.setToPins(memoryCmd, io)
   refreshCounter := refreshCounter - Bits(1)
-  
+
   // state machine for the ocp signal
-  when(state === idle) {
-    
+  when(state === ControllerState.idle) {
     when (refreshCounter < Bits(3+ocpBurstLen)) { // 3+ocpBurstLen in order to make sure there is room for read/write
         memoryCmd := MemCmd.cbrAutoRefresh
         io.sdramControllerPins.ramOut.cs := low
@@ -149,7 +144,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
         io.sdramControllerPins.ramOut.cas := low
         io.sdramControllerPins.ramOut.we := high
         refreshCounter := Bits(refreshRate)
-        state := refresh
+        state := ControllerState.refresh
         
     } .elsewhen (cmd === OcpCmd.RD) {
 
@@ -168,7 +163,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
         counter := Bits(ocpBurstLen+2)
         
         // Set next state to write
-        state := read
+        state := ControllerState.read
 
     }
     
@@ -189,7 +184,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
         counter := Bits(ocpBurstLen)
         
         // Set next state to write
-        state := write
+        state := ControllerState.write
 
     }
     
@@ -207,7 +202,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     }
   } 
   
-  .elsewhen (state === write) {
+  .elsewhen (state === ControllerState.write) {
   
     // Send write signal to memCmd with address and AUTO PRECHARGE enabled
     memoryCmd := MemCmd.write
@@ -216,22 +211,24 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     // set io.ocp.S.CmdAccept to HIGH only on first iteration
     io.ocp.S.CmdAccept := high & counter(2)  
     // set data and byte enable for read
-    io.sdramControllerPins.ramOut.dq := io.ocp.M.Data
-    io.sdramControllerPins.ramOut.dqm := io.ocp.M.DataByteEn
+    io.sdramControllerPins.ramOut.dq1 := io.ocp.M.Data(15, 0)
+    io.sdramControllerPins.ramOut.dq2 := io.ocp.M.Data(31, 16)
+    io.sdramControllerPins.ramOut.dqm1 := io.ocp.M.DataByteEn(1,0)
+    io.sdramControllerPins.ramOut.dqm2 := io.ocp.M.DataByteEn(3,2)
     
     // Either continue or stop burst
     when(counter > Bits(1)) {
         counter := counter - Bits(1)
         address := address + Bits(4)
-        state := write
+        state := ControllerState.write
     } .otherwise {
         io.ocp.S.Resp := OcpResp.DVA
-        state := idle
+        state := ControllerState.idle
     }
     
   } 
   
-  .elsewhen (state === read) {
+  .elsewhen (state === ControllerState.read) {
   
     // Send read signal to memCmd with address and AUTO PRECHARGE enabled - Only on first iteration
     when (counter === Bits(2+ocpBurstLen)) {
@@ -241,27 +238,31 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     }
     
     when (counter < Bits(ocpBurstLen)) {
-        io.ocp.S.Data := io.sdramControllerPins.ramIn.dq
+        io.ocp.S.Data(15, 0)  := io.sdramControllerPins.ramIn.dq1
+        io.ocp.S.Data(31, 16) := io.sdramControllerPins.ramIn.dq2
+
         io.ocp.S.Resp := OcpResp.DVA
     }
     
     // go to next address for duration of burst
     when (counter > Bits(1)) {
         counter := counter - Bits(1)
-        state := read
+        state := ControllerState.read
     } .otherwise { 
-        state := idle
+        state := ControllerState.idle
     }
   
   }
   
   // The following is all part of the initialization phase
-  .elsewhen (state === init_start) {
+  .elsewhen (state === ControllerState.initStart) {
     /* The 512Mb SDRAM is initialized after the power is applied
     *  to Vdd and Vddq (simultaneously) and the clock is stable
     *  with DQM High and CKE High. */
     io.sdramControllerPins.ramOut.cke := high
-    io.sdramControllerPins.ramOut.dqm := Bits(15) //4 bit high
+    // All bits of dqm set to high
+    io.sdramControllerPins.ramOut.dqm1 := Bits("b11")
+    io.sdramControllerPins.ramOut.dqm2 := Bits("b11") 
     
     /* A 100μs delay is required prior to issuing any command
     *  other than a COMMAND INHIBIT or a NOP. The COMMAND
@@ -270,32 +271,32 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     memoryCmd := MemCmd.noOperation
     when (initCounter>Bits(0)) {   
         initCounter := initCounter - Bits(1);
-        state := init_start 
+        state := ControllerState.initStart 
     } .otherwise {
-        state := init_precharge 
+        state := ControllerState.initPrecharge 
         }
     
-  } .elsewhen (state === init_precharge) {
+  } .elsewhen (state === ControllerState.initPrecharge) {
     /* With at least one COMMAND INHIBIT or NOP command
     *  having been applied, a PRECHARGE command should
     *  be applied once the 100μs delay has been satisfied. All
     *  banks must be precharged. */
     memoryCmd := MemCmd.prechargeAllBanks
-    state := init_refresh
+    state := ControllerState.initRefresh
     counter := high
     
-  } .elsewhen (state === init_refresh) {
+  } .elsewhen (state === ControllerState.initRefresh) {
     /* at least two AUTO REFRESH cycles
     *  must be performed. */
     memoryCmd := MemCmd.cbrAutoRefresh
     when (counter===high) {
         counter := counter - Bits(1)
-        state := init_refresh
+        state := ControllerState.initRefresh
     } .otherwise {
-        state := init_register
+        state := ControllerState.initRegister
     }
   
-  } .elsewhen (state === init_register) {
+  } .elsewhen (state === ControllerState.initRegister) {
     /* The mode register should be loaded prior to applying
     * any operational command because it will power up in an
     * unknown state. */
@@ -331,7 +332,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     io.sdramControllerPins.ramOut.addr(2,0)     := Bits(2) // Burst Length TODO: make this dynamic
   }
   
-  .elsewhen (state === refresh) {
+  .elsewhen (state === ControllerState.refresh) {
         memoryCmd := MemCmd.cbrAutoRefresh
         io.sdramControllerPins.ramOut.cs := low
         io.sdramControllerPins.ramOut.ras := low
@@ -340,15 +341,17 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
         
         when( refreshCounter > UInt(0) ) { // do it this many times
           refreshCounter := refreshCounter - UInt(1)
-          state := refresh
+          state := ControllerState.refresh
         } .otherwise { 
-          state := idle
+          state := ControllerState.idle
         }
   }
   
+  // No need to add the otherwise option if we have when implementation for all cases
+  /*
   .otherwise { 
     // Used for standard register value update
-    address := address;
+    address := address
     io.ocp.S.CmdAccept := low
     io.ocp.S.DataAccept := low
     io.sdramControllerPins.ramOut.dq := low
@@ -360,11 +363,12 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     io.ocp.S.DataAccept := low
     memoryCmd := MemCmd.noOperation
   }
+  */
 }
 
 // Memory controller internal states
 private object ControllerState {
-    val idle :: write :: read :: Nil = Enum(UInt(), 3)
+    val idle :: write :: read :: initStart :: refresh :: initPrecharge :: initRefresh :: initRegister :: Nil = Enum(UInt(), 8)
 }
 
 private object MemCmd {
@@ -372,28 +376,14 @@ private object MemCmd {
   val deviceDeselect :: noOperation :: burstStop :: read :: readWithAutoPrecharge :: write :: writeWithAutoPrecharge :: bankActivate :: prechargeSelectBank :: prechargeAllBanks :: cbrAutoRefresh :: selfRefresh :: modeRegisterSet :: Nil = Enum(UInt(), 13)
   
   // Syntactic sugar
-  private val high = Bits(1)
-  private val low  = Bits(0)
-
-  // Public API for decoding
-  def getFromPins(io: BurstDeviceIO with SdramController.Pins): UInt = {
-    val cmd = getFromPinsImplementation(
-                clk = io.sdramControllerPins.ramOut.clk,
-                cs  = io.sdramControllerPins.ramOut.cs,
-                ras = io.sdramControllerPins.ramOut.ras,
-                cas = io.sdramControllerPins.ramOut.cas,
-                we  = io.sdramControllerPins.ramOut.we,
-                ba  = io.sdramControllerPins.ramOut.ba,
-                a10 = io.sdramControllerPins.ramOut.addr(10)
-              )
-    return cmd
-  }
+  private val high = Bits("b1")
+  private val low  = Bits("b0")
 
   // Public API for encoding
   def setToPins(memCmd:UInt, io: BurstDeviceIO with SdramController.Pins) = {
     setToPinsImplementation(
       memCmd = memCmd,
-      clk    = io.sdramControllerPins.ramOut.clk,
+      cke    = io.sdramControllerPins.ramOut.cke,
       cs     = io.sdramControllerPins.ramOut.cs,
       ras    = io.sdramControllerPins.ramOut.ras,
       cas    = io.sdramControllerPins.ramOut.cas,
@@ -406,74 +396,38 @@ private object MemCmd {
   /* 
     Private implementation of a decoding
     According to the datasheet there are other signals not considered in this function. This is why:
-      - clk(n-1): in all cases of the "COMMAND TRUTH TABLE" is high
+      - cke(n-1): in all cases of the "COMMAND TRUTH TABLE" is high
       - A12, A11, A9 to A0: data is allways going to be high or low, allways valid values
       - Valid states are not considered: they are allways going to be valid (it is not possible to have a signal with a value between low and high)
   */
-  private def getFromPinsImplementation(clk: Bits, cs:Bits, ras:Bits, cas:Bits, we:Bits, ba:Bits, a10:Bits): UInt = {
-    val reg  = Reg(UInt())
+  private def setToPinsImplementation(memCmd: UInt, cke: Bits, cs:Bits, ras:Bits, cas:Bits, we:Bits, ba:Bits, a10:Bits) = {
 
-    when(cs === high) {
-      reg := deviceDeselect
-    }.elsewhen(cs === low && ras === high && cas === high && we === high) {
-      reg := noOperation
-    }.elsewhen(cs === low && ras === high && cas === high && we === low) {
-      reg := burstStop
-    }.elsewhen(cs === low && ras === high && cas === low && we === high && a10 === low) {
-      reg := read
-    }.elsewhen(cs === low && ras === high && cas === low && we === high && a10 === high) {
-      reg := writeWithAutoPrecharge
-    }.elsewhen(cs === low && ras === high && cas === low && we === low && a10 === low) {
-      reg := write
-    }.elsewhen(cs === low && ras === high && cas === low && we === low && a10 === high) {
-      reg := writeWithAutoPrecharge
-    }.elsewhen(cs === low && ras === low && cas === high && we === high) {
-      reg := bankActivate
-    }.elsewhen(cs === low && ras === low && cas === high && we === low && a10 === low) {
-      reg := prechargeSelectBank
-    }.elsewhen(cs === low && ras === low && cas === high && we === low && a10 === high) {
-      reg := prechargeAllBanks
-    }.elsewhen(clk === high && cs === low && ras === low && cas === low && we === high) {
-      reg := cbrAutoRefresh
-    }.elsewhen(clk === low && cs === low && ras === low && cas === low && we === high) {
-      reg := selfRefresh
-    }.elsewhen(cs === low && ras === low && cas === low && we === low && ba(0) === low && ba(1) === low && a10 === low) {
-      reg := modeRegisterSet
-    }.otherwise {
-      // Entering here is an error
-      reg := deviceDeselect
-    }
-
-    return reg
-  }
-
-  private def setToPinsImplementation(memCmd: UInt, clk: Bits, cs:Bits, ras:Bits, cas:Bits, we:Bits, ba:Bits, a10:Bits) = {
     when(memCmd === deviceDeselect) {
-      clk := high; cs := high; ras := low; cas := low; we := low; a10 := low
+      cs := high
+    }.elsewhen(memCmd === noOperation) {
+      cs := low; ras := high; cas := high; we := high
     }.elsewhen(memCmd === burstStop) {
-      clk := high; cs := low; ras := high; cas := high; we := low; a10 := low
+      cs := low; ras := high; cas := high; we := low
     }.elsewhen(memCmd === read) {
-      clk := high; cs := low; ras := high; cas := low; we := high; a10 := low
+      cs := low; ras := high; cas := low; we := high; a10 := low
     }.elsewhen(memCmd === writeWithAutoPrecharge) {
-      clk := high; cs := low; ras := high; cas := low; we := high; a10 := high
+      cs := low; ras := high; cas := low; we := high; a10 := high
     }.elsewhen(memCmd === write) {
-      clk := high; cs := low; ras := high; cas := low; we := low; a10 := low
+      cs := low; ras := high; cas := low; we := low; a10 := low
     }.elsewhen(memCmd === writeWithAutoPrecharge) {
-      clk := high; cs := low; ras := high; cas := low; we := low; a10 := high
+      cs := low; ras := high; cas := low; we := low; a10 := high
     }.elsewhen(memCmd === bankActivate) {
-      clk := high; cs := low; ras := low; cas := high; we := high; a10 := low
+      cs := low; ras := low; cas := high; we := high
     }.elsewhen(memCmd === prechargeSelectBank) {
-      clk := high; cs := low; ras := low; cas := high; we := low; a10 := low
+      cs := low; ras := low; cas := high; we := low; a10 := low
     }.elsewhen(memCmd === prechargeAllBanks) {
-      clk := high; cs := low; ras := low; cas := high; we := low; a10 := high
+      cs := low; ras := low; cas := high; we := low; a10 := high
     }.elsewhen(memCmd === cbrAutoRefresh) {
-      clk := high; cs := low; ras := low; cas := low; we := high; a10 := low
+      cke := high; cs := low; ras := low; cas := low; we := high
     }.elsewhen(memCmd === selfRefresh) {
-      clk := low; cs := low; ras := low; cas := low; we := high; a10 := low
+      cke := low; cs := low; ras := low; cas := low; we := high
     }.elsewhen(memCmd === modeRegisterSet) {
-      clk := high; cs := low; ras := low; cas := low; we := low; a10 := low
-    }.otherwise { // assumes memCmd === noOperation
-      clk := high; cs := low; ras := high; cas := high; we := high; a10 := low
+      cs := low; ras := low; cas := low; we := low; ba(0) := low; ba(1) := low; a10 := low
     }
   }
 }
