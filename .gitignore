@@ -59,6 +59,7 @@ hardware/quartus/altde2-115-mc
 *.out
 *.tmp
 *.jdi
+.DS_Store
 
 # Ignore Vivado journal files
 vivado*.jou
