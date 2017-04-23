@@ -33,7 +33,6 @@
         <param name="sdramAddrWidth" value="13" />
         <param name="sdramDataWidth" value="32" />
         <param name="ocpAddrWidth" value="25" />
-        <param name="ocpBurstLen" value="4" />
       </params>
   </Dev>
   </Devs>

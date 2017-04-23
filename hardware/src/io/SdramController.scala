@@ -49,17 +49,15 @@ object SdramController extends DeviceObject {
   var sdramAddrWidth = 13
   var sdramDataWidth = 32
   var ocpAddrWidth   = 25
-  var ocpBurstLen    = 0
 
   def init(params: Map[String, String]) = {
     sdramAddrWidth  = getPosIntParam(params, "sdramAddrWidth")
     sdramDataWidth  = getPosIntParam(params, "sdramDataWidth")
     ocpAddrWidth    = getPosIntParam(params, "ocpAddrWidth")
-    ocpBurstLen     = getPosIntParam(params, "ocpBurstLen")
   }
 
   def create(params: Map[String, String]): SdramController = {
-    Module(new SdramController(sdramAddrWidth, sdramDataWidth, ocpAddrWidth, ocpBurstLen))
+    Module(new SdramController(sdramAddrWidth, sdramDataWidth, ocpAddrWidth, ocpBurstLen=BURST_LENGTH))
   }
 
   trait Pins {
