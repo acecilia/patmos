@@ -327,6 +327,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     *  ---  Reserved            */
     ramOut.addr(2,0)     := Bits(2) // Burst Length TODO: make this dynamic
     
+    memoryCmd := MemCmd.modeRegisterSet
     state := ControllerState.idle
   }
   
