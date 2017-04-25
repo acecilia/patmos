@@ -310,12 +310,12 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     *  010  2 cycles
     *  011  3 cycles
     *  ---  Reserved            */
-    ramOut.addr(8,7)     := Bits (2)
+    ramOut.addr(6,4)     := Bits (2)
     
     /* Burst Type
     *  0    Sequential
     *  1    Interleaved         */
-    ramOut.addr(8,7)     := low
+    ramOut.addr(3)     := low
     
     /* Burst Length
     *  000  1
@@ -325,6 +325,8 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     *  111  Full Page (for sequential type only)
     *  ---  Reserved            */
     ramOut.addr(2,0)     := Bits(2) // Burst Length TODO: make this dynamic
+    
+    state := ControllerState.idle
   }
   
   .elsewhen (state === ControllerState.refresh) {
