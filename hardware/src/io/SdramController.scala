@@ -90,6 +90,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   override val io  = new BurstDeviceIO(ocpAddrWidth) with SdramController.Pins
   
   // Syntactic sugar
+  val clockFreq = 80000000 // util.Config.getConfig.frequency
   val ocpCmd  = io.ocp.M.Cmd
   val ocpSlavePort = io.ocp.S
   val ocpMasterPort = io.ocp.M
@@ -101,8 +102,8 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   val state          = Reg(init = ControllerState.initStart) // Controller state
   val memoryCmd      = UInt()
   val address        = Reg(init = Bits(0))
-  val initCycles     = (0.0001*CLOCK_FREQ).toInt // Calculate number of cycles for init from processor clock freq
-  val refreshRate    = (0.064*CLOCK_FREQ).toInt
+  val initCycles     = (0.0001*clockFreq).toInt // Calculate number of cycles for init from processor clock freq
+  val refreshRate    = (0.064*clockFreq).toInt
   val thisManyTimes  = 8192
   val initCounter    = Reg(init = Bits(initCycles))
   val refreshCounter = Reg(init = Bits(refreshRate))
