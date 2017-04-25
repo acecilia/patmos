@@ -92,7 +92,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   // Syntactic sugar
   val ocpCmd  = io.ocp.M.Cmd
   val ocpSlavePort = io.ocp.S
-  val ocpMasterPort = io.ocp.S
+  val ocpMasterPort = io.ocp.M
   val ramOut = io.sdramControllerPins.ramOut
   val ramIn = io.sdramControllerPins.ramIn
   val high = Bits("b1")
