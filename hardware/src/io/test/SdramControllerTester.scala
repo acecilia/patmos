@@ -3,6 +3,7 @@ import Chisel._
 import Node._
 import ocp._
 import io._
+import patmos.Constants._
 
 //     val sdramControllerPins = new Bundle {
 //       val ramOut = new Bundle {
@@ -32,19 +33,35 @@ class SdramControllerTester (dut: SdramController ) extends Tester(dut) {
     *   it is finished. We except the controller to take the 
     *   command from patmos as soon as the controller is ready
     */
+    println("\n0 idle\n1 write\n2 read\n3 initStart\n4 refresh\n5 initPrecharge\n6 initRefresh\n7 initRegister\n\n")
     println("Testing Initialization: ")
-    
-    poke(dut.io.ocp.M.Cmd, 2)
+    poke(dut.io.ocp.M.Cmd, 0)
     poke(dut.io.ocp.M.Addr, 1 )
     poke(dut.io.ocp.M.Data, 42 )
-    step (1)
-    val cs = peek(dut.io.sdramControllerPins.ramOut.cs)
-    val ras = peek(dut.io.sdramControllerPins.ramOut.ras)
-    val we = peek(dut.io.sdramControllerPins.ramOut.we)
-    println("\n")
-    println ("cs: \texpected: 0\t got: " + cs)
-    println ("ras:\texpected: 1\t got:  " + cs)
-    println ("we:\texpected: 1\t got:  " + cs)
+        step (10000)
+    peek(dut.io.sdramControllerPins.ramOut.cs)
+    peek(dut.io.sdramControllerPins.ramOut.ras)
+    peek(dut.io.sdramControllerPins.ramOut.we)
+    peek(dut.refreshCounter)
+    peek(dut.state)
+//         step (20000)
+//     peek(dut.io.sdramControllerPins.ramOut.cs)
+//     peek(dut.io.sdramControllerPins.ramOut.ras)
+//     peek(dut.io.sdramControllerPins.ramOut.we)
+//     peek(dut.refreshCounter)
+//     peek(dut.state)
+//         step (30000)
+//     peek(dut.io.sdramControllerPins.ramOut.cs)
+//     peek(dut.io.sdramControllerPins.ramOut.ras)
+//     peek(dut.io.sdramControllerPins.ramOut.we)
+//     peek(dut.refreshCounter)
+//     peek(dut.state)
+//         step (40000)
+//     peek(dut.io.sdramControllerPins.ramOut.cs)
+//     peek(dut.io.sdramControllerPins.ramOut.ras)
+//     peek(dut.io.sdramControllerPins.ramOut.we)
+//     peek(dut.refreshCounter)
+//     peek(dut.state)
 
 }
 
