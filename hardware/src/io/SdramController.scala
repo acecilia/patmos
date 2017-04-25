@@ -97,7 +97,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   val low  = Bits("b0")
 
   val state          = Reg(init = ControllerState.initStart) // Controller state
-  val memoryCmd      = Reg(init = MemCmd.noOperation)
+  val memoryCmd      = UInt()
   val address        = Reg(init = Bits(0))
   val initCycles     = (0.0001*CLOCK_FREQ).toInt // Calculate number of cycles for init from processor clock freq
   val refreshRate    = (0.064*CLOCK_FREQ).toInt
@@ -107,6 +107,9 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   
   // counter used for burst
   val counter = Reg(init = Bits(0))
+
+  // Default value for signals
+  memoryCmd := MemCmd.noOperation
 
   // Default assignemts to OCP slave signals
   slavePort.Resp       := OcpResp.NULL
@@ -127,7 +130,6 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   ramOut.we   := low        
   ramOut.cs   := high
 
-  MemCmd.setToPins(memoryCmd, io)
   refreshCounter := refreshCounter - Bits(1)
 
   // state machine for the ocp signal
@@ -355,6 +357,8 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     memoryCmd := MemCmd.noOperation
   }
   */
+
+  MemCmd.setToPins(memoryCmd, io)
 }
 
 // Memory controller internal states
@@ -392,7 +396,6 @@ private object MemCmd {
       - Valid states are not considered: they are allways going to be valid (it is not possible to have a signal with a value between low and high)
   */
   private def setToPinsImplementation(memCmd: UInt, cke: Bits, cs:Bits, ras:Bits, cas:Bits, we:Bits, ba:Bits, a10:Bits) = {
-
     when(memCmd === deviceDeselect) {
       cs := high
     }.elsewhen(memCmd === noOperation) {
