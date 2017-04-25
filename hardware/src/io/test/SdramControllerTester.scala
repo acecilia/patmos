@@ -18,22 +18,21 @@ import patmos.Constants._
 //         val we   = Bits(OUTPUT, width = 1)
 //         val cs   = Bits(OUTPUT, width = 1)
 //         val dqEn = Bits(OUTPUT, width = 1)
-//       }
+
 //       val ramIn = new Bundle {
 //         val dq    = Bits(INPUT, width = sdramAddrWidth)
-//       }
-//     }
 
+// It is possible to avoid the default prints of poke, peek, execute and step by extending from Tester(dut, false) instead of Tester(dut)
 class SdramControllerTester (dut: SdramController ) extends Tester(dut) {
+    
+    println("\n0 idle\n1 write\n2 read\n3 initStart\n4 refresh\n5 initPrecharge\n6 initRefresh\n7 initRegister\n\n")
     
     /* Testing Initialization of DRAM
     *
     *   The controller should send the correct init procedure
     *   to the DRAM, and ignore any input from the ocp until
     *   it is finished. We except the controller to take the 
-    *   command from patmos as soon as the controller is ready
-    */
-    println("\n0 idle\n1 write\n2 read\n3 initStart\n4 refresh\n5 initPrecharge\n6 initRefresh\n7 initRegister\n\n")
+    *   command from patmos as soon as the controller is ready */
     println("Testing Initialization: ")
         poke(dut.io.ocp.M.Cmd, 0)
         poke(dut.io.ocp.M.Addr, 1 )
@@ -47,8 +46,9 @@ class SdramControllerTester (dut: SdramController ) extends Tester(dut) {
         peek(dut.io.sdramControllerPins.ramOut.addr)
         peek(dut.io.sdramControllerPins.ramOut.cke)
         peek(dut.refreshCounter)
-        peek(dut.state)
-    step (1)
+        var state = peek(dut.state)
+    while (state!=0x0) {
+        step (1)
         peek(dut.io.sdramControllerPins.ramOut.cs)
         peek(dut.io.sdramControllerPins.ramOut.ras)
         peek(dut.io.sdramControllerPins.ramOut.we)
@@ -57,60 +57,72 @@ class SdramControllerTester (dut: SdramController ) extends Tester(dut) {
         peek(dut.io.sdramControllerPins.ramOut.addr)
         peek(dut.io.sdramControllerPins.ramOut.cke)
         peek(dut.refreshCounter)
-        peek(dut.state)
-    step (1)
-        peek(dut.io.sdramControllerPins.ramOut.cs)
-        peek(dut.io.sdramControllerPins.ramOut.ras)
-        peek(dut.io.sdramControllerPins.ramOut.we)
-        peek(dut.io.sdramControllerPins.ramOut.cas)
-        peek(dut.io.sdramControllerPins.ramOut.ba)
-        peek(dut.io.sdramControllerPins.ramOut.addr)
-        peek(dut.io.sdramControllerPins.ramOut.cke)
-        peek(dut.refreshCounter)
-        peek(dut.state)
-    step (1)
-        peek(dut.io.sdramControllerPins.ramOut.cs)
-        peek(dut.io.sdramControllerPins.ramOut.ras)
-        peek(dut.io.sdramControllerPins.ramOut.we)
-        peek(dut.io.sdramControllerPins.ramOut.cas)
-        peek(dut.io.sdramControllerPins.ramOut.ba)
-        peek(dut.io.sdramControllerPins.ramOut.addr)
-        peek(dut.io.sdramControllerPins.ramOut.cke)
-        peek(dut.refreshCounter)
-        peek(dut.state)
-    step (1)
-        peek(dut.io.sdramControllerPins.ramOut.cs)
-        peek(dut.io.sdramControllerPins.ramOut.ras)
-        peek(dut.io.sdramControllerPins.ramOut.we)
-        peek(dut.io.sdramControllerPins.ramOut.cas)
-        peek(dut.io.sdramControllerPins.ramOut.ba)
-        peek(dut.io.sdramControllerPins.ramOut.addr)
-        peek(dut.io.sdramControllerPins.ramOut.cke)
-        peek(dut.refreshCounter)
-        peek(dut.state)
-    step (1)
-        peek(dut.io.sdramControllerPins.ramOut.cs)
-        peek(dut.io.sdramControllerPins.ramOut.ras)
-        peek(dut.io.sdramControllerPins.ramOut.we)
-        peek(dut.io.sdramControllerPins.ramOut.cas)
-        peek(dut.io.sdramControllerPins.ramOut.ba)
-        peek(dut.io.sdramControllerPins.ramOut.addr)
-        peek(dut.io.sdramControllerPins.ramOut.cke)
-        peek(dut.refreshCounter)
-        peek(dut.state)
-    step (1)
-        peek(dut.io.sdramControllerPins.ramOut.cs)
-        peek(dut.io.sdramControllerPins.ramOut.ras)
-        peek(dut.io.sdramControllerPins.ramOut.we)
-        peek(dut.io.sdramControllerPins.ramOut.cas)
-        peek(dut.io.sdramControllerPins.ramOut.ba)
-        peek(dut.io.sdramControllerPins.ramOut.addr)
-        peek(dut.io.sdramControllerPins.ramOut.cke)
-        peek(dut.refreshCounter)
-        peek(dut.state)
+        state = peek(dut.state)
+    }
 
+    // Syntactic sugar
+    private val ramOut = dut.io.sdramControllerPins.ramOut
+    private val ocpMasterPort = dut.io.ocp.M
+
+    println("-- Testing started --")
+    //Test.initialization.execute()
+
+    // Object storing the tests
+    private object Test {
+        /* Testing Initialization of DRAM
+        *
+        *   The controller should send the correct init procedure
+        *   to the DRAM, and ignore any input from the ocp until
+        *   it is finished. We except the controller to take the 
+        *   command from patmos as soon as the controller is ready
+        */
+        val initialization = Test("Initialize", () => {
+            poke(ocpMasterPort.Cmd, 0)
+            poke(ocpMasterPort.Addr, 1)
+            poke(ocpMasterPort.Data, 42)
+
+            expectStateOrAdvance(4) //initStart
+            expectStateOrAdvance(5) //initPrecharge
+            expectStateOrAdvance(6) //initRefresh
+            expectStateOrAdvance(7) //initRegister
+            expectStateOrAdvance(0) //idle
+
+            peek(ramOut.cs)
+            peek(ramOut.ras)
+            peek(ramOut.we)
+            peek(dut.refreshCounter)
+            peek(dut.state)
+            
+        })
+
+        val read = Test("Read", () => {
+        })
+
+        val write = Test("Write", () => {
+        })
+
+        def expectStateOrAdvance(state:Int, waitSteps:Int = 10000):Unit = {
+            val initialState = peek(dut.state)
+            for( a <- 0 until waitSteps){
+                val tmpState = peek(dut.state)
+                if (initialState != tmpState || tmpState == state) {
+                    expect(dut.state, state)
+                    return
+                }
+                step(1)
+            }
+            expect(dut.state, state)
+        }
+
+    // Class to store the test information
+    private case class Test(name: String, execution: () => Unit) {
+        def execute() = {
+            println("--->" + name + ":")
+            reset()
+            execution()
+        }
+    }
 }
-
 
 object SdramControllerTester {
     var sdramAddrWidth = 13

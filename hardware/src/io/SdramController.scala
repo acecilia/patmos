@@ -368,11 +368,11 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
 }
 
 // Memory controller internal states
-private object ControllerState {
-    val idle :: write :: read :: initStart :: refresh :: initPrecharge :: initRefresh :: initRegister :: Nil = Enum(UInt(), 8)
+object ControllerState {
+    val idle :: write :: read :: refresh :: initStart :: initPrecharge :: initRefresh :: initRegister :: Nil = Enum(UInt(), 8)
 }
 
-private object MemCmd {
+object MemCmd {
   // States obtained from the IS42/45R86400D/16320D/32160D datasheet, from the table "COMMAND TRUTH TABLE"
   val deviceDeselect :: noOperation :: burstStop :: read :: readWithAutoPrecharge :: write :: writeWithAutoPrecharge :: bankActivate :: prechargeSelectBank :: prechargeAllBanks :: cbrAutoRefresh :: selfRefresh :: modeRegisterSet :: Nil = Enum(UInt(), 13)
   
