@@ -63,11 +63,9 @@ object SdramController extends DeviceObject {
   trait Pins {
     val sdramControllerPins = new Bundle {
       val ramOut = new Bundle {
-        // The total 128MB SDRAM is implemented using two 64MB SDRAM devices (page 64 of the DE2-115 manual)
-        val dq1  = Bits(OUTPUT, sdramDataWidth/2) 
-        val dq2  = Bits(OUTPUT, sdramDataWidth/2)
-        val dqm1 = Bits(OUTPUT, 2)
-        val dqm2 = Bits(OUTPUT, 2)
+        // The total 128MB SDRAM is implemented using two 64MB SDRAM devices (page 64 of the DE2-115 manual. "dq" and "dqm" will need to be splitted at pin assignment)
+        val dq  = Bits(OUTPUT, sdramDataWidth) 
+        val dqm = Bits(OUTPUT, 4)
 
         // Common signals for the two 64MB SDRAM devices
         val addr = Bits(OUTPUT, sdramDataWidth)
@@ -81,8 +79,7 @@ object SdramController extends DeviceObject {
         val dqEn = Bits(OUTPUT, 1)
       }
       val ramIn = new Bundle {
-        val dq1   = Bits(INPUT, sdramDataWidth/2)
-        val dq2   = Bits(INPUT, sdramDataWidth/2)
+        val dq   = Bits(INPUT, sdramDataWidth)
       }
     }
   }
@@ -119,10 +116,8 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
 
   // Default assignemts to SdramController output signals
   ramOut.dqEn := low
-  ramOut.dq1  := low 
-  ramOut.dq2  := low        
-  ramOut.dqm1 := low 
-  ramOut.dqm2 := low      
+  ramOut.dq   := low 
+  ramOut.dqm  := low 
   ramOut.addr := low        
   ramOut.ba   := low         
   ramOut.clk  := low        
@@ -211,10 +206,8 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     // set io.ocp.S.CmdAccept to HIGH only on first iteration
     io.ocp.S.CmdAccept := high & counter(2)  
     // set data and byte enable for read
-    io.sdramControllerPins.ramOut.dq1 := io.ocp.M.Data(15, 0)
-    io.sdramControllerPins.ramOut.dq2 := io.ocp.M.Data(31, 16)
-    io.sdramControllerPins.ramOut.dqm1 := io.ocp.M.DataByteEn(1,0)
-    io.sdramControllerPins.ramOut.dqm2 := io.ocp.M.DataByteEn(3,2)
+    io.sdramControllerPins.ramOut.dq  := io.ocp.M.Data
+    io.sdramControllerPins.ramOut.dqm := io.ocp.M.DataByteEn
     
     // Either continue or stop burst
     when(counter > Bits(1)) {
@@ -238,8 +231,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     }
     
     when (counter < Bits(ocpBurstLen)) {
-        io.ocp.S.Data(15, 0)  := io.sdramControllerPins.ramIn.dq1
-        io.ocp.S.Data(31, 16) := io.sdramControllerPins.ramIn.dq2
+        io.ocp.S.Data := io.sdramControllerPins.ramIn.dq
 
         io.ocp.S.Resp := OcpResp.DVA
     }
@@ -261,8 +253,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     *  with DQM High and CKE High. */
     io.sdramControllerPins.ramOut.cke := high
     // All bits of dqm set to high
-    io.sdramControllerPins.ramOut.dqm1 := Bits("b11")
-    io.sdramControllerPins.ramOut.dqm2 := Bits("b11") 
+    io.sdramControllerPins.ramOut.dqm := Bits("b1111")
     
     /* A 100μs delay is required prior to issuing any command
     *  other than a COMMAND INHIBIT or a NOP. The COMMAND
