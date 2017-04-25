@@ -265,7 +265,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     *  INHIBIT or NOP may be applied during the 100us period and
     *  should continue at least through the end of the period. */
     memoryCmd := MemCmd.noOperation
-    when (initCounter>Bits(0)) {   
+    when (initCounter > Bits(1)) {   
         initCounter := initCounter - Bits(1);
         state := ControllerState.initStart 
     } .otherwise {
