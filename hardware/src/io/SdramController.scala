@@ -90,6 +90,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   override val io  = new BurstDeviceIO(ocpAddrWidth) with SdramController.Pins
   
   // Syntactic sugar
+  val clockFreq = 80000000 // util.Config.getConfig.frequency
   val ocpCmd  = io.ocp.M.Cmd
   val ocpSlavePort = io.ocp.S
   val ocpMasterPort = io.ocp.M
@@ -101,8 +102,8 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   val state          = Reg(init = ControllerState.initStart) // Controller state
   val memoryCmd      = UInt()
   val address        = Reg(init = Bits(0))
-  val initCycles     = (0.0001*CLOCK_FREQ).toInt // Calculate number of cycles for init from processor clock freq
-  val refreshRate    = (0.064*CLOCK_FREQ).toInt
+  val initCycles     = (0.0001*clockFreq).toInt // Calculate number of cycles for init from processor clock freq
+  val refreshRate    = (0.064*clockFreq).toInt
   val thisManyTimes  = 8192
   val initCounter    = Reg(init = Bits(initCycles))
   val refreshCounter = Reg(init = Bits(refreshRate))
@@ -327,6 +328,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     *  ---  Reserved            */
     ramOut.addr(2,0)     := Bits(2) // Burst Length TODO: make this dynamic
     
+    memoryCmd := MemCmd.modeRegisterSet
     state := ControllerState.idle
   }
   
@@ -367,11 +369,11 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
 }
 
 // Memory controller internal states
-private object ControllerState {
-    val idle :: write :: read :: initStart :: refresh :: initPrecharge :: initRefresh :: initRegister :: Nil = Enum(UInt(), 8)
+object ControllerState {
+    val idle :: write :: read :: refresh :: initStart :: initPrecharge :: initRefresh :: initRegister :: Nil = Enum(UInt(), 8)
 }
 
-private object MemCmd {
+object MemCmd {
   // States obtained from the IS42/45R86400D/16320D/32160D datasheet, from the table "COMMAND TRUTH TABLE"
   val deviceDeselect :: noOperation :: burstStop :: read :: readWithAutoPrecharge :: write :: writeWithAutoPrecharge :: bankActivate :: prechargeSelectBank :: prechargeAllBanks :: cbrAutoRefresh :: selfRefresh :: modeRegisterSet :: Nil = Enum(UInt(), 13)
   
