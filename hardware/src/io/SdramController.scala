@@ -153,8 +153,8 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
         
         // Send ACT signal to mem where addr = OCP addr 22-13, ba1 = OCP addr 24, ba2 = OCP addr 23
         memoryCmd := MemCmd.bankActivate        
-        ramOut.addr(12,0) := address(22,13)
-        ramOut.ba := address(24,23)
+        ramOut.addr(12,0) := ocpMasterPort.Addr(12,0)
+        ramOut.ba := ocpMasterPort.Addr(24,23)
         
         // send accept to ocp
         ocpSlavePort.CmdAccept := high
@@ -174,8 +174,8 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
         
         // Send ACT signal to mem where addr = OCP addr 22-13, ba1 = OCP addr 24, ba2 = OCP addr 23
         memoryCmd := MemCmd.bankActivate        
-        ramOut.addr(12,0) := address(22,13)
-        ramOut.ba := address(24,23)
+        ramOut.addr(12,0) := ocpMasterPort.Addr(12,0)
+        ramOut.ba := ocpMasterPort.Addr(24,23)
         
         // send accept to ocp
         ocpSlavePort.CmdAccept := high
@@ -206,8 +206,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   
     // Send write signal to memCmd with address and AUTO PRECHARGE enabled
     memoryCmd := MemCmd.write
-    ramOut.addr(9,0) := address(13,0)
-    ramOut.addr(10)  := high
+    ramOut.addr(13,0) := address(13,0)
     // set io.ocp.S.CmdAccept to HIGH only on first iteration
     ocpSlavePort.CmdAccept := high & counter(2)  
     // set data and byte enable for read
@@ -232,13 +231,12 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     // Send read signal to memCmd with address and AUTO PRECHARGE enabled - Only on first iteration
     when (counter === Bits(2+ocpBurstLen)) {
         memoryCmd := MemCmd.read
-        ramOut.addr(9,0) := address(13,0)
-        ramOut.addr(10)  := high
+        ramOut.addr(9,0) := address(22,13)
+        ramOut.ba := address(24,23)
     }
     
-    when (counter < Bits(ocpBurstLen)) {
+    when (counter <= Bits(ocpBurstLen)) {
         ocpSlavePort.Data := ramIn.dq
-
         ocpSlavePort.Resp := OcpResp.DVA
     }
     
@@ -249,7 +247,6 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     } .otherwise { 
         state := ControllerState.idle
     }
-  
   }
   
   // The following is all part of the initialization phase
