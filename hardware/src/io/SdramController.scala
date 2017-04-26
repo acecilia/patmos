@@ -228,7 +228,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   } 
   
   .elsewhen (state === ControllerState.read) {
-    dqEn := low
+    ramOut.dqEn := low
     // Send read signal to memCmd with address and AUTO PRECHARGE enabled - Only on first iteration
     when (counter === Bits(2+ocpBurstLen)) {
         memoryCmd := MemCmd.read

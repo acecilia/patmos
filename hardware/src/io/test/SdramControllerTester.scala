@@ -113,7 +113,7 @@ class SdramControllerTester (dut: SdramController ) extends Tester(dut) {
             }
             expect(dut.state, state)
         }
-
+    }
     // Class to store the test information
     private case class Test(name: String, execution: () => Unit) {
         def execute() = {
