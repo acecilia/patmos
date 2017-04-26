@@ -210,6 +210,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     // set io.ocp.S.CmdAccept to HIGH only on first iteration
     ocpSlavePort.CmdAccept := high & counter(2)  
     // set data and byte enable for read
+    ramOut.dqEn := high
     ramOut.dq  := ocpMasterPort.Data
     ramOut.dqm := ocpMasterPort.DataByteEn
     
@@ -226,7 +227,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   } 
   
   .elsewhen (state === ControllerState.read) {
-  
+    dqEn := low
     // Send read signal to memCmd with address and AUTO PRECHARGE enabled - Only on first iteration
     when (counter === Bits(2+ocpBurstLen)) {
         memoryCmd := MemCmd.read
