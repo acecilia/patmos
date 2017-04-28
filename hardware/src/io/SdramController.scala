@@ -162,7 +162,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
         // reset burst counter
         counter := Bits(ocpBurstLen+2)
         
-        // Set next state to write
+        // Set next state to read
         state := ControllerState.read
 
     }
