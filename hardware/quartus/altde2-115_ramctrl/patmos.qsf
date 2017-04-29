@@ -36,6 +36,7 @@
 #
 # -------------------------------------------------------------------------- #
 
+set_global_assignment -name NUM_PARALLEL_PROCESSORS 2
 
 set_global_assignment -name FAMILY "Cyclone IV E"
 set_global_assignment -name DEVICE EP4CE115F29C7
@@ -43,38 +44,52 @@ set_global_assignment -name TOP_LEVEL_ENTITY patmos_top
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION 16.1.0
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "16:09:16  APRIL 11, 2017"
 set_global_assignment -name LAST_QUARTUS_VERSION "16.1.0 Lite Edition"
-set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
+
 set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
 set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
 set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR 1
-set_global_assignment -name NOMINAL_CORE_SUPPLY_VOLTAGE 1.2V
-set_global_assignment -name EDA_SIMULATION_TOOL "ModelSim-Altera (Verilog)"
-set_global_assignment -name EDA_TIME_SCALE "1 ps" -section_id eda_simulation
-set_global_assignment -name EDA_OUTPUT_DATA_FORMAT "VERILOG HDL" -section_id eda_simulation
-set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
-set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name USE_CONFIGURATION_DEVICE ON
+set_global_assignment -name RESERVE_ALL_UNUSED_PINS "AS INPUT TRI-STATED"
+set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "3.3-V LVCMOS"
+
+set_global_assignment -name RESERVE_ALL_UNUSED_PINS_NO_OUTPUT_GND "AS INPUT TRI-STATED"
+
+#set_global_assignment -name NOMINAL_CORE_SUPPLY_VOLTAGE 1.2V
+#set_global_assignment -name EDA_SIMULATION_TOOL "ModelSim-Altera (Verilog)"
+#set_global_assignment -name EDA_TIME_SCALE "1 ps" -section_id eda_simulation
+#set_global_assignment -name EDA_OUTPUT_DATA_FORMAT "VERILOG HDL" -section_id eda_simulation
+
+set_global_assignment -name SYNTH_TIMING_DRIVEN_SYNTHESIS ON
+set_global_assignment -name CYCLONEII_OPTIMIZATION_TECHNIQUE SPEED
+set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
+set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
+set_global_assignment -name DEVICE_FILTER_PACKAGE FBGA
+
 set_global_assignment -name VHDL_FILE "../../vhdl/patmos_de2-115_ramctrl.vhdl"
 set_global_assignment -name VHDL_FILE ../../vhdl/altera/cyc2_pll.vhd
 set_global_assignment -name VERILOG_FILE ../../build/Patmos.v
-set_location_assignment PIN_Y2 -to clk
-set_location_assignment PIN_G12 -to iUartPins_rxd
-set_location_assignment PIN_G9 -to oUartPins_txd
-set_location_assignment PIN_F17 -to oLedsPins_led[8]
-set_location_assignment PIN_G21 -to oLedsPins_led[7]
-set_location_assignment PIN_G22 -to oLedsPins_led[6]
-set_location_assignment PIN_G20 -to oLedsPins_led[5]
-set_location_assignment PIN_H21 -to oLedsPins_led[4]
-set_location_assignment PIN_E24 -to oLedsPins_led[3]
-set_location_assignment PIN_E25 -to oLedsPins_led[2]
-set_location_assignment PIN_E22 -to oLedsPins_led[1]
-set_location_assignment PIN_E21 -to oLedsPins_led[0]
-set_location_assignment PIN_R24 -to iKeysPins_key[3]
-set_location_assignment PIN_N21 -to iKeysPins_key[2]
-set_location_assignment PIN_M21 -to iKeysPins_key[1]
-set_location_assignment PIN_M23 -to iKeysPins_key[0]
+
+set_global_assignment -name FITTER_EFFORT "STANDARD FIT"
+set_global_assignment -name OPTIMIZE_HOLD_TIMING "ALL PATHS"
+set_global_assignment -name OPTIMIZE_MULTI_CORNER_TIMING ON
+set_global_assignment -name PHYSICAL_SYNTHESIS_COMBO_LOGIC ON
+set_global_assignment -name SEED 6
+set_global_assignment -name VERILOG_MACRO "SYNTHESIS=<None>"
+
+#####################################################################
+#
+# INSTANCE ASSIGNMENTS
+#
+#####################################################################
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to clk
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to oUartPins_txd
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to iUartPins_rxd
+
 set_instance_assignment -name IO_STANDARD "2.5 V" -to oLedsPins_led[8]
 set_instance_assignment -name IO_STANDARD "2.5 V" -to oLedsPins_led[7]
 set_instance_assignment -name IO_STANDARD "2.5 V" -to oLedsPins_led[6]
@@ -84,69 +99,101 @@ set_instance_assignment -name IO_STANDARD "2.5 V" -to oLedsPins_led[3]
 set_instance_assignment -name IO_STANDARD "2.5 V" -to oLedsPins_led[2]
 set_instance_assignment -name IO_STANDARD "2.5 V" -to oLedsPins_led[1]
 set_instance_assignment -name IO_STANDARD "2.5 V" -to oLedsPins_led[0]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to oUartPins_txd
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to iUartPins_rxd
+
 set_instance_assignment -name IO_STANDARD "2.5 V" -to iKeysPins_key[3]
 set_instance_assignment -name IO_STANDARD "2.5 V" -to iKeysPins_key[2]
 set_instance_assignment -name IO_STANDARD "2.5 V" -to iKeysPins_key[1]
 set_instance_assignment -name IO_STANDARD "2.5 V" -to iKeysPins_key[0]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to clk
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_ADDR[11]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_ADDR[10]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_ADDR[9]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_ADDR[8]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_ADDR[7]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_ADDR[6]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_ADDR[5]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_ADDR[4]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_ADDR[3]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_ADDR[2]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_ADDR[1]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_ADDR[0]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[30]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[29]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[28]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[27]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[26]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[25]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[24]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[23]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[31]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[20]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[19]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[18]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[17]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[16]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[15]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[14]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[13]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[12]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[11]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[10]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[9]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[8]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[7]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[6]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[5]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[4]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[3]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[2]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[1]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[0]
 
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_BA[1]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_BA[0]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQM[3]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQM[2]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQM[1]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQM[0]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_RAS
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_CAS
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_CKE
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_CLK
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_WE
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_CS
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_ADDR[12]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_ADDR[12]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_ADDR[11]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_ADDR[10]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_ADDR[9]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_ADDR[8]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_ADDR[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_ADDR[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_ADDR[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_ADDR[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_ADDR[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_ADDR[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_ADDR[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_ADDR[0]
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[31]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[30]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[29]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[28]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[27]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[26]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[25]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[24]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[23]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[22]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[21]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[20]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[19]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[18]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[17]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[16]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[15]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[14]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[13]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[12]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[11]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[10]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[9]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[8]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQ[0]
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_BA[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_BA[0]
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_RAS
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_CAS
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_CKE
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_CLK
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_WE
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_CS
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQM[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQM[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQM[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to dram_DQM[0]
+
+#####################################################################
+#
+# PIN ASSIGNMENT
+#
+#####################################################################
+
+set_location_assignment PIN_Y2 -to clk
+
+set_location_assignment PIN_G12 -to iUartPins_rxd
+set_location_assignment PIN_G9 -to oUartPins_txd
+
+set_location_assignment PIN_F17 -to oLedsPins_led[8]
+set_location_assignment PIN_G21 -to oLedsPins_led[7]
+set_location_assignment PIN_G22 -to oLedsPins_led[6]
+set_location_assignment PIN_G20 -to oLedsPins_led[5]
+set_location_assignment PIN_H21 -to oLedsPins_led[4]
+set_location_assignment PIN_E24 -to oLedsPins_led[3]
+set_location_assignment PIN_E25 -to oLedsPins_led[2]
+set_location_assignment PIN_E22 -to oLedsPins_led[1]
+set_location_assignment PIN_E21 -to oLedsPins_led[0]
+
+set_location_assignment PIN_R24 -to iKeysPins_key[3]
+set_location_assignment PIN_N21 -to iKeysPins_key[2]
+set_location_assignment PIN_M21 -to iKeysPins_key[1]
+set_location_assignment PIN_M23 -to iKeysPins_key[0]
+
+set_location_assignment PIN_Y7 -to dram_ADDR[12]
 set_location_assignment PIN_AA5 -to dram_ADDR[11]
 set_location_assignment PIN_R5 -to dram_ADDR[10]
 set_location_assignment PIN_Y6 -to dram_ADDR[9]
@@ -159,6 +206,8 @@ set_location_assignment PIN_P1 -to dram_ADDR[3]
 set_location_assignment PIN_U8 -to dram_ADDR[2]
 set_location_assignment PIN_V8 -to dram_ADDR[1]
 set_location_assignment PIN_R6 -to dram_ADDR[0]
+
+set_location_assignment PIN_U1 -to dram_DQ[31]
 set_location_assignment PIN_U4 -to dram_DQ[30]
 set_location_assignment PIN_T3 -to dram_DQ[29]
 set_location_assignment PIN_R3 -to dram_DQ[28]
@@ -167,7 +216,8 @@ set_location_assignment PIN_R1 -to dram_DQ[26]
 set_location_assignment PIN_R7 -to dram_DQ[25]
 set_location_assignment PIN_U5 -to dram_DQ[24]
 set_location_assignment PIN_L7 -to dram_DQ[23]
-set_location_assignment PIN_U1 -to dram_DQ[31]
+set_location_assignment PIN_M7 -to dram_DQ[22]
+set_location_assignment PIN_M4 -to dram_DQ[21]
 set_location_assignment PIN_N4 -to dram_DQ[20]
 set_location_assignment PIN_N3 -to dram_DQ[19]
 set_location_assignment PIN_P2 -to dram_DQ[18]
@@ -189,21 +239,20 @@ set_location_assignment PIN_W1 -to dram_DQ[3]
 set_location_assignment PIN_V4 -to dram_DQ[2]
 set_location_assignment PIN_W2 -to dram_DQ[1]
 set_location_assignment PIN_W3 -to dram_DQ[0]
-set_location_assignment PIN_Y7 -to dram_ADDR[12]
-set_location_assignment PIN_M4 -to dram_DQ[21]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[21]
-set_location_assignment PIN_M7 -to dram_DQ[22]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to dram_DQ[22]
-set_location_assignment PIN_U6 -to dram_RAS
-set_location_assignment PIN_V6 -to dram_WE
-set_location_assignment PIN_T4 -to dram_CS
+
 set_location_assignment PIN_R4 -to dram_BA[1]
 set_location_assignment PIN_U7 -to dram_BA[0]
+
+set_location_assignment PIN_U6 -to dram_RAS
 set_location_assignment PIN_V7 -to dram_CAS
 set_location_assignment PIN_AA6 -to dram_CKE
 set_location_assignment PIN_AE5 -to dram_CLK
+set_location_assignment PIN_V6 -to dram_WE
+set_location_assignment PIN_T4 -to dram_CS
+
 set_location_assignment PIN_N8 -to dram_DQM[3]
 set_location_assignment PIN_K8 -to dram_DQM[2]
 set_location_assignment PIN_W4 -to dram_DQM[1]
 set_location_assignment PIN_U2 -to dram_DQM[0]
+
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
