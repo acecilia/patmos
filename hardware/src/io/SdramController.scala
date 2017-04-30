@@ -205,25 +205,24 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   .elsewhen (state === ControllerState.write) {
   
     // Send write signal to memCmd with address and AUTO PRECHARGE enabled
-    memoryCmd := MemCmd.write
-    ramOut.addr(13,0) := address(13,0)
-
+    ramOut.addr(12,0) := address(12,0)
+    ramOut.ba := ocpMasterPort.Addr(24,23)
     // set data and byte enable for read
     ramOut.dqEn := high
     ramOut.dq  := ocpMasterPort.Data
     ramOut.dqm := ocpMasterPort.DataByteEn
     
     // Either continue or stop burst
-    when(counter > Bits(1)) {
-        io.ocp.S.DataAccept := high
+    when(counter >= Bits(1)) {
+        memoryCmd := MemCmd.write
         counter := counter - Bits(1)
-        address := address + Bits(4)
+        io.ocp.S.DataAccept := high
         state := ControllerState.write
     } .otherwise {
+        memoryCmd := MemCmd.noOperation
         ocpSlavePort.Resp := OcpResp.DVA
         state := ControllerState.idle
     }
-    
   } 
   
   .elsewhen (state === ControllerState.read) {
