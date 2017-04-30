@@ -182,7 +182,7 @@ doc:
 patmos: gen synth config
 
 # configure the FPGA
-config:
+config: scripttools
 ifeq ($(VENDOR),Xilinx)
 	$(INSTALLDIR)/bin/config_xilinx hardware/ise/$(BOARD)/patmos_top.bit
 endif

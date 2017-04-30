@@ -77,6 +77,7 @@ object SdramController extends DeviceObject {
         val we   = Bits(OUTPUT, 1)
         val cs   = Bits(OUTPUT, 1)
         val dqEn = Bits(OUTPUT, 1)
+        val led = Bits(OUTPUT, 1)
       }
       val ramIn = new Bundle {
         val dq   = Bits(INPUT, sdramDataWidth)
@@ -134,9 +135,12 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   ramOut.cs   := high
 
   refreshCounter := refreshCounter - Bits(1)
+  ramOut.led := low
 
   // state machine for the ocp signal
   when(state === ControllerState.idle) {
+    ramOut.led := high
+
     when (refreshCounter < Bits(3+ocpBurstLen)) { // 3+ocpBurstLen in order to make sure there is room for read/write
         memoryCmd := MemCmd.cbrAutoRefresh
         ramOut.cs := low

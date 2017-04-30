@@ -21,17 +21,18 @@ entity patmos_top is
     iKeysPins_key : in std_logic_vector(3 downto 0);
     oUartPins_txd : out std_logic;
     iUartPins_rxd : in  std_logic;
-
+    
     -- memory interface
-    dram_CLK  : out std_logic;   -- Clock
-    dram_CKE  : out std_logic;   -- Clock Enable
-    dram_RAS  : out std_logic;   -- Row Address Strobe
-    dram_CAS  : out std_logic;   -- Column Address Strobe
-    dram_WE   : out std_logic;   -- Write Enable
-    dram_CS   : out std_logic;   -- Chip Select
+    dram_CLK  : out std_logic;                      -- Clock
+    dram_CKE  : out std_logic;                      -- Clock Enable
+    dram_RAS  : out std_logic;                      -- Row Address Strobe
+    dram_CAS  : out std_logic;                      -- Column Address Strobe
+    dram_WE   : out std_logic;                      -- Write Enable
+    dram_CS   : out std_logic;                      -- Chip Select
     dram_BA   : out std_logic_vector(1 downto 0);   -- Bank Address
-    dram_ADDR : out std_logic_vector(12 downto 0); -- SDRAM Address
-    dram_DQM  : out std_logic_vector(3 downto 0); -- SDRAM byte Data Mask
+    dram_ADDR : out std_logic_vector(12 downto 0);  -- SDRAM Address
+    dram_DQM  : out std_logic_vector(3 downto 0);   -- SDRAM byte Data Mask
+    dram_LED  : out std_logic;                      -- LED, for testing purposes (to be removed)
 
     -- data bus to and from the chips
     dram_DQ   : inout std_logic_vector(31 downto 0)
@@ -79,7 +80,8 @@ architecture rtl of patmos_top is
       io_sdramControllerPins_ramOut_dqm   : out std_logic_vector(3 downto 0);         
       io_sdramControllerPins_ramOut_dq    : out std_logic_vector(31 downto 0);
       io_sdramControllerPins_ramOut_dqEn  : out std_logic;      
-      io_sdramControllerPins_ramIn_dq     : in std_logic_vector(31 downto 0)
+      io_sdramControllerPins_ramIn_dq     : in std_logic_vector(31 downto 0);
+      io_sdramControllerPins_ramOut_led   : out std_logic 
     );
   end component;
 
@@ -181,7 +183,8 @@ begin
       io_sdramControllerPins_ramOut_dqm   => dram_DQM,
       io_sdramControllerPins_ramOut_dq    => sdram_out_dout,
       io_sdramControllerPins_ramOut_dqEn  => sdram_out_dout_ena,      
-      io_sdramControllerPins_ramIn_dq     => dram_DQ
+      io_sdramControllerPins_ramIn_dq     => dram_DQ,
+      io_sdramControllerPins_ramOut_led   => dram_LED
     );
 
 end architecture rtl;
