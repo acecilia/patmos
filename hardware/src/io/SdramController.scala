@@ -94,13 +94,13 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   val ocpCmd  = io.ocp.M.Cmd
   val ocpSlavePort = io.ocp.S
   val ocpMasterPort = io.ocp.M
-  val ramOut = io.sdramControllerPins.ramOut
-  val ramIn = io.sdramControllerPins.ramIn
+  // val ramOut = pipe
+  // val ramIn = io.sdramControllerPins.ramIn
   val high = Bits("b1")
   val low  = Bits("b0")
 
   val state          = Reg(init = ControllerState.initStart) // Controller state
-  val memoryCmd      = UInt()
+  val memoryCmd      = Reg(init = Bits(0))
   val address        = Reg(init = Bits(0))
   val initCycles     = (0.0001*clockFreq).toInt // Calculate number of cycles for init from processor clock freq
   val refreshRate    = (0.064*clockFreq).toInt
@@ -110,6 +110,22 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   
   // counter used for burst
   val counter = Reg(init = Bits(0))
+  
+  val ramOut = new Bundle {
+        val dq  = Reg(init = Bits(0))
+        val dqm = Reg(init = Bits(0))
+        val addr = Reg(init = Bits(0))
+        val ba   = Reg(init = Bits(0))
+        val clk  = Reg(init = Bits(0))
+        val cke  = Reg(init = Bits(0))
+        val ras  = Reg(init = Bits(0))
+        val cas  = Reg(init = Bits(0))
+        val we   = Reg(init = Bits(0))
+        val cs   = Reg(init = Bits(0))
+        val dqEn = Reg(init = Bits(0))
+      }
+      
+  val ramIndq = Reg(init = Bits(0))
 
   // Default value for signals
   memoryCmd := MemCmd.noOperation
@@ -121,17 +137,18 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   ocpSlavePort.Data       := low
 
   // Default assignemts to SdramController output signals
-  ramOut.dqEn := low
-  ramOut.dq   := low 
-  ramOut.dqm  := low 
-  ramOut.addr := low        
-  ramOut.ba   := low         
-  ramOut.clk  := low        
-  ramOut.cke  := low        
-  ramOut.ras  := low        
-  ramOut.cas  := low         
-  ramOut.we   := low        
-  ramOut.cs   := high
+  io.sdramControllerPins.ramOut.dqEn := ramOut.dqEn
+  io.sdramControllerPins.ramOut.dq   := ramOut.dq
+  io.sdramControllerPins.ramOut.dqm  := ramOut.dqm
+  io.sdramControllerPins.ramOut.addr := ramOut.addr
+  io.sdramControllerPins.ramOut.ba   := ramOut.ba
+  io.sdramControllerPins.ramOut.clk  := ramOut.clk
+  io.sdramControllerPins.ramOut.cke  := ramOut.cke
+  io.sdramControllerPins.ramOut.ras  := ramOut.ras
+  io.sdramControllerPins.ramOut.cas  := ramOut.cas
+  io.sdramControllerPins.ramOut.we   := ramOut.we
+  io.sdramControllerPins.ramOut.cs   := ramOut.cs
+  ramIndq                            := io.sdramControllerPins.ramIn.dq
 
   refreshCounter := refreshCounter - Bits(1)
 
@@ -160,7 +177,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
         ocpSlavePort.CmdAccept := high
         
         // reset burst counter
-        counter := Bits(ocpBurstLen+2)
+        counter := Bits(ocpBurstLen+3)
         
         // Set next state to read
         state := ControllerState.read
@@ -228,19 +245,19 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   .elsewhen (state === ControllerState.read) {
     ramOut.dqEn := low
     // Send read signal to memCmd with address and AUTO PRECHARGE enabled - Only on first iteration
-    when (counter === Bits(2+ocpBurstLen)) {
+    when (counter === Bits(3+ocpBurstLen)) {
         memoryCmd := MemCmd.read
         ramOut.addr(9,0) := address(22,13)
         ramOut.ba := address(24,23)
     }
     
-    when (counter <= Bits(ocpBurstLen)) {
-        ocpSlavePort.Data := ramIn.dq
+    when (counter < Bits(ocpBurstLen)) {
+        ocpSlavePort.Data := ramIndq
         ocpSlavePort.Resp := OcpResp.DVA
     }
     
     // go to next address for duration of burst
-    when (counter > Bits(1)) {
+    when (counter > Bits(0)) {
         counter := counter - Bits(1)
         state := ControllerState.read
     } .otherwise { 
@@ -402,13 +419,13 @@ object MemCmd {
     when(memCmd === deviceDeselect) {
       cs := high
     }.elsewhen(memCmd === noOperation) {
-      cs := low; ras := high; cas := high; we := high
+      cs := low; ras := high; cas := high; we := high;
     }.elsewhen(memCmd === burstStop) {
-      cs := low; ras := high; cas := high; we := low
+      cs := low; ras := high; cas := high; we := low;
     }.elsewhen(memCmd === read) {
-      cs := low; ras := high; cas := low; we := high; a10 := low
+      cs := low; ras := high; cas := low; we := high; a10 := low;
     }.elsewhen(memCmd === writeWithAutoPrecharge) {
-      cs := low; ras := high; cas := low; we := high; a10 := high
+      cs := low; ras := high; cas := low; we := high; a10 := high;
     }.elsewhen(memCmd === write) {
       cs := low; ras := high; cas := low; we := low; a10 := low
     }.elsewhen(memCmd === writeWithAutoPrecharge) {
