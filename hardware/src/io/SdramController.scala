@@ -70,7 +70,7 @@ object SdramController extends DeviceObject {
         // Common signals for the two 64MB SDRAM devices
         val addr = Bits(OUTPUT, sdramDataWidth)
         val ba   = Bits(OUTPUT, 2)
-        val clk  = Bits(OUTPUT, 1)
+        //val clk  = Bits(OUTPUT, 1)
         val cke  = Bits(OUTPUT, 1)
         val ras  = Bits(OUTPUT, 1)
         val cas  = Bits(OUTPUT, 1)
@@ -80,7 +80,8 @@ object SdramController extends DeviceObject {
         val led = Bits(OUTPUT, 1)
       }
       val ramIn = new Bundle {
-        val dq   = Bits(INPUT, sdramDataWidth)
+        val pllReady  = Bits(INPUT, 1)
+        val dq        = Bits(INPUT, sdramDataWidth)
       }
     }
   }
@@ -100,7 +101,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   val high = Bits("b1")
   val low  = Bits("b0")
 
-  val state          = Reg(init = ControllerState.initStart) // Controller state
+  val state          = Reg(init = ControllerState.waitPll) // Controller state
   val memoryCmd      = UInt()
   val address        = Reg(init = Bits(0))
   val initCycles     = (0.0001*clockFreq).toInt // Calculate number of cycles for init from processor clock freq
@@ -127,7 +128,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   ramOut.dqm  := low 
   ramOut.addr := low        
   ramOut.ba   := low         
-  ramOut.clk  := low        
+  //ramOut.clk  := low        
   ramOut.cke  := low        
   ramOut.ras  := low        
   ramOut.cas  := low         
@@ -138,7 +139,14 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   ramOut.led := low
 
   // state machine for the ocp signal
-  when(state === ControllerState.idle) {
+  when(state === ControllerState.waitPll) {
+    when(ramIn.pllReady === high) {
+      state := ControllerState.initStart
+    }.otherwise {
+      state := ControllerState.waitPll 
+    }
+  }
+  .elsewhen(state === ControllerState.idle) {
     ramOut.led := high
 
     when (refreshCounter < Bits(3+ocpBurstLen)) { // 3+ocpBurstLen in order to make sure there is room for read/write
@@ -370,7 +378,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
 
 // Memory controller internal states
 object ControllerState {
-    val idle :: write :: read :: refresh :: initStart :: initPrecharge :: initRefresh :: initRegister :: Nil = Enum(UInt(), 8)
+    val waitPll :: idle :: write :: read :: refresh :: initStart :: initPrecharge :: initRefresh :: initRegister :: Nil = Enum(UInt(), 9)
 }
 
 object MemCmd {
