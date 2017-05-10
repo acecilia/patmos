@@ -69,7 +69,6 @@ architecture rtl of patmos_top is
       io_uartPins_rx  : in  std_logic;
 
       -- SDRAM OUTs
-      io_sdramControllerPins_ramOut_clk   : out std_logic;
       io_sdramControllerPins_ramOut_cke   : out std_logic;
       io_sdramControllerPins_ramOut_ras   : out std_logic;
       io_sdramControllerPins_ramOut_cas   : out std_logic;
@@ -172,7 +171,6 @@ begin
       io_uartPins_tx => oUartPins_txd,
       io_uartPins_rx => iUartPins_rxd,
 
-      io_sdramControllerPins_ramOut_clk   => open, 
       io_sdramControllerPins_ramOut_cke   => dram_CKE, 
       io_sdramControllerPins_ramOut_ras   => dram_RAS, 
       io_sdramControllerPins_ramOut_cas   => dram_CAS, 
