@@ -68,6 +68,12 @@ architecture rtl of patmos_top is
       io_uartPins_tx  : out std_logic;
       io_uartPins_rx  : in  std_logic;
 
+      -- controller pll ready
+      io_sdramControllerPins_ramIn_pllReady : in std_logic;
+      
+      -- controller data in
+      io_sdramControllerPins_ramIn_dq       : in std_logic_vector(31 downto 0);
+      
       -- SDRAM OUTs
       io_sdramControllerPins_ramOut_cke   : out std_logic;
       io_sdramControllerPins_ramOut_ras   : out std_logic;
@@ -79,61 +85,38 @@ architecture rtl of patmos_top is
       io_sdramControllerPins_ramOut_dqm   : out std_logic_vector(3 downto 0);         
       io_sdramControllerPins_ramOut_dq    : out std_logic_vector(31 downto 0);
       io_sdramControllerPins_ramOut_dqEn  : out std_logic;      
-      io_sdramControllerPins_ramIn_dq     : in std_logic_vector(31 downto 0);
       io_sdramControllerPins_ramOut_led   : out std_logic 
     );
   end component;
 
-  -- DE2-70: 50 MHz clock => 80 MHz
-  -- BeMicro: 16 MHz clock => 25.6 MHz
-  constant pll_infreq : real    := 50.0;
-  constant pll_mult   : natural := 8;
-  constant pll_div    : natural := 5;
+  component de2_115_sdram_pll is
+    port(
+      inclk0  : in std_logic := '0';
+      c0      : out std_logic;
+      c1      : out std_logic;
+      c2      : out std_logic;
+      locked  : out std_logic
+    );
+  end component;
 
-  signal clk_int : std_logic;
+  signal sys_clk  : std_logic;
+  signal pllReady : std_logic;
+  --signal dram_clk_skew  : std_logic;
 
   -- for generation of internal reset
-  signal int_res            : std_logic;
-  signal res_reg1, res_reg2 : std_logic;
-  signal res_cnt            : unsigned(2 downto 0) := "000"; -- for the simulation
+  signal rst      : std_logic;
+  signal rst_n    : std_logic;
+  signal rst_cnt  : unsigned(2 downto 0) := "000"; -- for the simulation
 
   -- sdram signals for tristate inout
   signal sdram_out_dout_ena : std_logic;
   signal sdram_out_dout : std_logic_vector(31 downto 0);
 
   attribute altera_attribute : string;
-  attribute altera_attribute of res_cnt : signal is "POWER_UP_LEVEL=LOW";
+  attribute altera_attribute of rst_cnt : signal is "POWER_UP_LEVEL=LOW";
 
 begin
-  dram_CLK <= clk_int;
-  pll_inst : entity work.pll generic map(
-      input_freq  => pll_infreq,
-      multiply_by => pll_mult,
-      divide_by   => pll_div
-    )
-    port map(
-      inclk0 => clk,
-      c0     => clk_int
-    );
-  -- we use a PLL
-  -- clk_int <= clk;
-
-  --
-  --  internal reset generation
-  --  should include the PLL lock signal
-  --
-  process(clk_int)
-  begin
-    if rising_edge(clk_int) then
-      if (res_cnt /= "111") then
-        res_cnt <= res_cnt + 1;
-      end if;
-      res_reg1 <= not res_cnt(0) or not res_cnt(1) or not res_cnt(2);
-      res_reg2 <= res_reg1;
-      int_res  <= res_reg2;
-    end if;
-  end process;
-
+  -- tristate to accomodate for chisel lacking an inout port
   process(sdram_out_dout_ena, sdram_out_dout)
   begin
     if sdram_out_dout_ena='1' then
@@ -143,46 +126,70 @@ begin
     end if;
   end process;
 
-    patmos_inst : Patmos 
-    port map (
-      clk => clk_int, 
-      reset => int_res,
+  -- reset process
+  process(sys_clk, pllReady)
+  begin
+    if pllReady = '0' then
+      rst_cnt <= "000";
+      rst     <= '1';
+    elsif rising_edge(sys_clk) then
+      if (rst_cnt /= "111") then
+        rst_cnt <= rst_cnt + 1;
+      end if;
+      rst <= not rst_cnt(0) or not rst_cnt(1) or not rst_cnt(2);
+    end if;
+  end process;
 
-      io_comConf_M_Cmd => open,
-      io_comConf_M_Addr => open,
-      io_comConf_M_Data => open,
-      io_comConf_M_ByteEn => open,
-      io_comConf_M_RespAccept => open,
-      io_comConf_S_Resp => (others => '0'),
-      io_comConf_S_Data => (others => '0'),
-      io_comConf_S_CmdAccept => '0',
+  pll : de2_115_sdram_pll
+  port map(
+    inclk0  => clk, --50 MHz clock from the board
+    c0      => sys_clk,      
+    c1      => open,
+    c2      => dram_CLK,      
+    locked  => pllReady
+  );
 
-      io_comSpm_M_Cmd => open,
-      io_comSpm_M_Addr => open,
-      io_comSpm_M_Data => open,
-      io_comSpm_M_ByteEn => open,
-      io_comSpm_S_Resp => (others => '0'),
-      io_comSpm_S_Data => (others => '0'),
+  patmos_inst : Patmos 
+  port map (
+    clk => sys_clk, 
+    reset => rst,
 
-      io_cpuInfoPins_id => X"00000000",
-      io_cpuInfoPins_cnt => X"00000001",
-      io_ledsPins_led => oLedsPins_led,
-      io_keysPins_key => iKeysPins_key,
-      io_uartPins_tx => oUartPins_txd,
-      io_uartPins_rx => iUartPins_rxd,
+    io_comConf_M_Cmd => open,
+    io_comConf_M_Addr => open,
+    io_comConf_M_Data => open,
+    io_comConf_M_ByteEn => open,
+    io_comConf_M_RespAccept => open,
+    io_comConf_S_Resp => (others => '0'),
+    io_comConf_S_Data => (others => '0'),
+    io_comConf_S_CmdAccept => '0',
 
-      io_sdramControllerPins_ramOut_cke   => dram_CKE, 
-      io_sdramControllerPins_ramOut_ras   => dram_RAS, 
-      io_sdramControllerPins_ramOut_cas   => dram_CAS, 
-      io_sdramControllerPins_ramOut_we    => dram_WE,
-      io_sdramControllerPins_ramOut_cs    => dram_CS,
-      io_sdramControllerPins_ramOut_ba    => dram_BA,
-      io_sdramControllerPins_ramOut_addr  => dram_ADDR,
-      io_sdramControllerPins_ramOut_dqm   => dram_DQM,
-      io_sdramControllerPins_ramOut_dq    => sdram_out_dout,
-      io_sdramControllerPins_ramOut_dqEn  => sdram_out_dout_ena,      
-      io_sdramControllerPins_ramIn_dq     => dram_DQ,
-      io_sdramControllerPins_ramOut_led   => dram_LED
-    );
+    io_comSpm_M_Cmd => open,
+    io_comSpm_M_Addr => open,
+    io_comSpm_M_Data => open,
+    io_comSpm_M_ByteEn => open,
+    io_comSpm_S_Resp => (others => '0'),
+    io_comSpm_S_Data => (others => '0'),
+
+    io_cpuInfoPins_id => X"00000000",
+    io_cpuInfoPins_cnt => X"00000001",
+    io_ledsPins_led => oLedsPins_led,
+    io_keysPins_key => iKeysPins_key,
+    io_uartPins_tx => oUartPins_txd,
+    io_uartPins_rx => iUartPins_rxd,
+
+    io_sdramControllerPins_ramOut_cke   => dram_CKE, 
+    io_sdramControllerPins_ramOut_ras   => dram_RAS, 
+    io_sdramControllerPins_ramOut_cas   => dram_CAS, 
+    io_sdramControllerPins_ramOut_we    => dram_WE,
+    io_sdramControllerPins_ramOut_cs    => dram_CS,
+    io_sdramControllerPins_ramOut_ba    => dram_BA,
+    io_sdramControllerPins_ramOut_addr  => dram_ADDR,
+    io_sdramControllerPins_ramOut_dqm   => dram_DQM,
+    io_sdramControllerPins_ramOut_dq    => sdram_out_dout,
+    io_sdramControllerPins_ramOut_dqEn  => sdram_out_dout_ena,      
+    io_sdramControllerPins_ramOut_led   => dram_LED,
+    io_sdramControllerPins_ramIn_dq     => dram_DQ,
+    io_sdramControllerPins_ramIn_pllReady => pllReady
+  );
 
 end architecture rtl;

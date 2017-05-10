@@ -79,7 +79,8 @@ object SdramController extends DeviceObject {
         val led  = Bits(OUTPUT, 1)
       }
       val ramIn = new Bundle {
-        val dq   = Bits(INPUT, sdramDataWidth)
+        val pllReady  = Bits(INPUT, 1)
+        val dq        = Bits(INPUT, sdramDataWidth)
       }
     }
   }
@@ -99,7 +100,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   val high = Bits("b1")
   val low  = Bits("b0")
 
-  val state          = Reg(init = ControllerState.initStart) // Controller state
+  val state          = Reg(init = ControllerState.waitPll) // Controller state
   val memoryCmd      = UInt()
   val address        = Reg(init = Bits(0))
   val tmpState       = Reg(init = ControllerState.initStart)
@@ -134,7 +135,16 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   ramOut.led := low
 
   // state machine for the ocp signal
-  when(state === ControllerState.idle) {    
+  when(state === ControllerState.waitPll) {
+    when(ramIn.pllReady === high) {
+      state := ControllerState.initStart
+    }.otherwise {
+      state := ControllerState.waitPll 
+    }
+  }
+  .elsewhen(state === ControllerState.idle) {
+    ramOut.led := high
+    
     memoryCmd := MemCmd.noOperation               // When idle, the memory is in noOperation state
     refreshCounter := refreshCounter - Bits(1)    // Wait until refresh is needed
 
@@ -304,8 +314,6 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   }
   
   .elsewhen (state === ControllerState.refresh) {
-      ramOut.led := high
-
       memoryCmd := MemCmd.cbrAutoRefresh    // Order auto-refresh
 
       counter := counter - Bits(1)          // Decrement counter, waiting for refreshing
@@ -316,8 +324,6 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   }
 
   .elsewhen (state === ControllerState.activate) {
-    ramOut.led := high
-
     // Send ACT signal to mem where addr = OCP addr 22-13, ba1 = OCP addr 24, ba2 = OCP addr 23
     memoryCmd := MemCmd.bankActivate        
     ramOut.addr(12,0) := address(12,0)
@@ -335,7 +341,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
 
 // Memory controller internal states
 object ControllerState {
-    val idle :: write :: read :: refresh :: activate :: initStart :: initPrecharge :: initRefresh :: initRegister :: Nil = Enum(UInt(), 9)
+    val waitPll :: idle :: write :: read :: refresh :: activate :: initStart :: initPrecharge :: initRefresh :: initRegister :: Nil = Enum(UInt(), 10)
 }
 
 object MemCmd {
