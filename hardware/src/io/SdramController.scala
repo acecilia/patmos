@@ -91,7 +91,6 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   
   // Syntactic sugar
   val clockFreq = 80000000 // util.Config.getConfig.frequency
-  val ocpCmd  = io.ocp.M.Cmd
   val ocpSlavePort = io.ocp.S
   val ocpMasterPort = io.ocp.M
   // val ramOut = pipe
@@ -126,15 +125,36 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
       }
       
   val ramIndq = Reg(init = Bits(0))
+  
+  val ocpReg = new Bundle {
+    val Mcmd        = Reg(init = Bits(0))
+    val MdataByteEn = Reg(init = Bits(0))
+    val MdataValid  = Reg(init = Bits(0))
+    val Maddr       = Reg(init = Bits(0))
+    val Mdata       = Reg(init = Bits(0))
+    val Sresp       = Reg(init = Bits(0))
+    val ScmdAccept  = Reg(init = Bits(0))
+    val SdataAccept = Reg(init = Bits(0))
+    val Sdata       = Reg(init = Bits(0))
+  }
 
   // Default value for signals
   memoryCmd := MemCmd.noOperation
 
-  // Default assignemts to OCP slave signals
-  ocpSlavePort.Resp       := OcpResp.NULL
+  // Default assignemts to OCP signals
+  ocpSlavePort.Resp       := ocpReg.Sresp
   ocpSlavePort.CmdAccept  := low 
-  ocpSlavePort.DataAccept := low
-  ocpSlavePort.Data       := low
+  ocpSlavePort.DataAccept := ocpReg.SdataAccept
+  ocpSlavePort.Data       := ocpReg.Sdata
+  ocpReg.Mcmd             := ocpMasterPort.Cmd
+  ocpReg.MdataByteEn      := ocpMasterPort.DataByteEn
+  ocpReg.MdataValid       := ocpMasterPort.DataValid
+  ocpReg.Mdata            := ocpMasterPort.Data
+  ocpReg.Maddr            := ocpMasterPort.Addr
+  
+  ocpReg.ScmdAccept := low
+  ocpReg.Sresp := OcpResp.NULL
+  ocpReg.SdataAccept := low
 
   // Default assignemts to SdramController output signals
   io.sdramControllerPins.ramOut.dqEn := ramOut.dqEn
@@ -150,10 +170,22 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   io.sdramControllerPins.ramOut.cs   := ramOut.cs
   ramIndq                            := io.sdramControllerPins.ramIn.dq
 
+  // much easier to read right?
+  val ocpCmd  = ocpReg.Mcmd
+  
   refreshCounter := refreshCounter - Bits(1)
 
   // state machine for the ocp signal
   when(state === ControllerState.idle) {
+  
+   when (ocpCmd === OcpCmd.RD | ocpCmd === OcpCmd.WR) {
+        ocpSlavePort.CmdAccept := high
+   }
+   
+   when (ocpCmd === OcpCmd.WR) {
+        ocpSlavePort.DataAccept := high
+   }
+  
     when (refreshCounter < Bits(3+ocpBurstLen)) { // 3+ocpBurstLen in order to make sure there is room for read/write
         memoryCmd := MemCmd.cbrAutoRefresh
         ramOut.cs := low
@@ -166,15 +198,12 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     } .elsewhen (ocpCmd === OcpCmd.RD) {
 
         // Save address to later use
-        address := ocpMasterPort.Addr
+        address := ocpReg.Maddr
         
         // Send ACT signal to mem where addr = OCP addr 22-13, ba1 = OCP addr 24, ba2 = OCP addr 23
         memoryCmd := MemCmd.bankActivate        
-        ramOut.addr(12,0) := ocpMasterPort.Addr(12,0)
-        ramOut.ba := ocpMasterPort.Addr(24,23)
-        
-        // send accept to ocp
-        ocpSlavePort.CmdAccept := high
+        ramOut.addr(12,0) := ocpReg.Maddr(12,0)
+        ramOut.ba := ocpReg.Maddr(24,23)
         
         // reset burst counter
         counter := Bits(ocpBurstLen+3)
@@ -187,18 +216,18 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     .elsewhen (ocpCmd === OcpCmd.WR) {
 
         // Save address to later use
-        address := ocpMasterPort.Addr
+        address := ocpReg.Maddr
         
         // Send ACT signal to mem where addr = OCP addr 22-13, ba1 = OCP addr 24, ba2 = OCP addr 23
         memoryCmd := MemCmd.bankActivate        
-        ramOut.addr(12,0) := ocpMasterPort.Addr(12,0)
-        ramOut.ba := ocpMasterPort.Addr(24,23)
-        
-        // send accept to ocp
-        ocpSlavePort.CmdAccept := high
+        ramOut.addr(12,0) := ocpReg.Maddr(12,0)
+        ramOut.ba := ocpReg.Maddr(24,23)
         
         // reset burst counter
         counter := Bits(ocpBurstLen)
+        
+        // set for next cycle
+        ocpReg.SdataAccept := high
         
         // Set next state to write
         state := ControllerState.write
@@ -223,21 +252,21 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   
     // Send write signal to memCmd with address and AUTO PRECHARGE enabled
     ramOut.addr(12,0) := address(12,0)
-    ramOut.ba := ocpMasterPort.Addr(24,23)
+    ramOut.ba := ocpReg.Maddr(24,23)
     // set data and byte enable for read
     ramOut.dqEn := high
-    ramOut.dq  := ocpMasterPort.Data
-    ramOut.dqm := ocpMasterPort.DataByteEn
+    ramOut.dq  := ocpReg.Mdata
+    ramOut.dqm := ocpReg.MdataByteEn
     
     // Either continue or stop burst
-    when(counter >= Bits(1)) {
+    when(counter > Bits(0)) {
+        when(counter === Bits(1)) { ocpReg.Sresp := OcpResp.DVA }
+        when(counter > Bits(2))   { ocpReg.SdataAccept := high  }
         memoryCmd := MemCmd.write
         counter := counter - Bits(1)
-        io.ocp.S.DataAccept := high
-        state := ControllerState.write
+        state := ControllerState.write 
     } .otherwise {
         memoryCmd := MemCmd.noOperation
-        ocpSlavePort.Resp := OcpResp.DVA
         state := ControllerState.idle
     }
   } 
@@ -251,16 +280,17 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
         ramOut.ba := address(24,23)
     }
     
-    when (counter < Bits(ocpBurstLen)) {
-        ocpSlavePort.Data := ramIndq
-        ocpSlavePort.Resp := OcpResp.DVA
-    }
-    
     // go to next address for duration of burst
     when (counter > Bits(0)) {
+        when (counter < Bits(ocpBurstLen)) {
+            ocpReg.Sdata := ramIndq
+            ocpReg.Sresp := OcpResp.DVA
+        }
         counter := counter - Bits(1)
         state := ControllerState.read
-    } .otherwise { 
+    } .otherwise {
+        ocpReg.Sdata := ramIndq
+        ocpReg.Sresp := OcpResp.DVA
         state := ControllerState.idle
     }
   }
