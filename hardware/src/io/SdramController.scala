@@ -266,20 +266,19 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     *  banks must be precharged. */
     memoryCmd := MemCmd.prechargeAllBanks
     state := ControllerState.initRefresh
-    counter := high
+    counter := Bits(3)
     
   }
 
   .elsewhen (state === ControllerState.initRefresh) {
     /* at least two AUTO REFRESH cycles
     *  must be performed. */
-    memoryCmd := MemCmd.cbrAutoRefresh
-    when (counter === high) {
-        counter := counter - Bits(1)
-        state := ControllerState.initRefresh
-    } .otherwise {
-        state := ControllerState.initRegister
-    }
+    when (counter === Bits(3) || counter === Bits(1))  { memoryCmd := MemCmd.cbrAutoRefresh } 
+    
+    when (counter === Bits(0) ) { state := ControllerState.initRegister }  
+    .otherwise                  { state := ControllerState.initRefresh  }
+
+    counter := counter - Bits(1)
   } 
 
   .elsewhen (state === ControllerState.initRegister) {
