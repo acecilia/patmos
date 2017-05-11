@@ -48,7 +48,7 @@ import patmos.Constants._
 object SdramController extends DeviceObject {
   private var sdramAddrWidth = 13
   private var sdramDataWidth = 32
-  private var ocpAddrWidth   = 25
+  private var ocpAddrWidth   = 25 // MAddr = Address, byte-based, lowest two bits always 0
 
   def init(params: Map[String, String]) = {
     sdramAddrWidth  = getPosIntParam(params, "sdramAddrWidth")
@@ -77,6 +77,9 @@ object SdramController extends DeviceObject {
         val cs   = Bits(OUTPUT, 1)
         val dqEn = Bits(OUTPUT, 1)
         val led  = Bits(OUTPUT, 1)
+
+        // Need to add the memoryCmd in the sdramControllerPins for being able to test it
+        val memoryCmd = UInt(OUTPUT)
       }
       val ramIn = new Bundle {
         val pllReady  = Bits(INPUT, 1)
@@ -101,7 +104,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   val low  = Bits("b0")
 
   val state          = Reg(init = ControllerState.waitPll) // Controller state
-  val memoryCmd      = UInt()
+  val memoryCmd      = io.sdramControllerPins.ramOut.memoryCmd
   val address        = Reg(init = Bits(0))
   val tmpState       = Reg(init = ControllerState.initStart)
 
@@ -132,44 +135,47 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   ramOut.we   := low        
   ramOut.cs   := high
 
-  ramOut.led := low
+  val refreshRateAux    = 1
+  val counterAux        = Reg(init = Bits(refreshRateAux))  
+  val ledReg            = Reg(init = high)
+
+  ramOut.led := ledReg
+
+  when (counterAux === Bits(0)) {
+    ledReg := ~ledReg
+    counterAux := Bits(refreshRateAux)
+  }
 
   // state machine for the ocp signal
   when(state === ControllerState.waitPll) {
     when(ramIn.pllReady === high) {
       state := ControllerState.initStart
-    }.otherwise {
-      state := ControllerState.waitPll 
     }
   }
-  .elsewhen(state === ControllerState.idle) {
-    ramOut.led := high
-    
+  .elsewhen(state === ControllerState.idle) {   
     memoryCmd := MemCmd.noOperation               // When idle, the memory is in noOperation state
     refreshCounter := refreshCounter - Bits(1)    // Wait until refresh is needed
 
     when (refreshCounter < Bits(1)) {             // Time to refresh
-        counter === Bits(10)
+        counter := Bits(4)
         state := ControllerState.refresh
     } 
 
     .elsewhen (ocpCmd === OcpCmd.RD) {
+        // counterAux := counterAux - Bits(1)
         address := ocpMasterPort.Addr             // Save address for later use
         tmpState := ControllerState.read          // Set future state
         
         ocpSlavePort.CmdAccept := high            // send accept to ocp
 
-        counter === Bits(10)                      // Prepare next state: activate
+        counter := Bits(10)                      // Prepare next state: activate
         state := ControllerState.activate         // Change to activate state
     }
     
-    .elsewhen (ocpCmd === OcpCmd.WR) {
+    .elsewhen (ocpCmd === OcpCmd.WR) {  
         address := ocpMasterPort.Addr             // Save address for later use
         tmpState := ControllerState.write         // Set future state
-        
-        ocpSlavePort.CmdAccept := high            // send accept to ocp
-
-        counter === Bits(10)                      // Prepare next state: activate
+        counter := Bits(1)                       // Prepare next state: activate
         state := ControllerState.activate         // Change to activate state
     }
     
@@ -184,25 +190,27 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   } 
   
   .elsewhen (state === ControllerState.write) {
-    // Send write signal to memCmd with address and AUTO PRECHARGE enabled
-    ramOut.addr(12,0) := address(12,0)
-    ramOut.ba := ocpMasterPort.Addr(24,23)
-    // set data and byte enable for read
-    ramOut.dqEn := high
-    ramOut.dq  := ocpMasterPort.Data
-    ramOut.dqm := ocpMasterPort.DataByteEn
-    
-    // Either continue or stop burst
-    when(counter >= Bits(1)) {
-        memoryCmd := MemCmd.write
-        counter := counter - Bits(1)
-        io.ocp.S.DataAccept := high
-        state := ControllerState.write
-    } .otherwise {
-        memoryCmd := MemCmd.noOperation
-        ocpSlavePort.Resp := OcpResp.DVA
-        state := ControllerState.idle
+    counter := counter - Bits(1)
+
+    when (counter > Bits(0)) {
+      when (counter === Bits(ocpBurstLen)) { 
+        ocpSlavePort.CmdAccept := high 
+      }
+
+      memoryCmd := MemCmd.writeWithAutoPrecharge
+      ramOut.addr(8,0) := address(10,2) // Select column
+      ramOut.ba := address(24)
+      ramOut.dq := ocpMasterPort.Data
+      ramOut.dqEn := high // byte enable for read (for the tristate)
+      ramOut.dqm := ocpMasterPort.DataByteEn // Subword writing
+      ocpSlavePort.DataAccept := high // Accept data
+    } 
+    .otherwise {
+      memoryCmd := MemCmd.noOperation
+      ocpSlavePort.Resp := OcpResp.DVA
+      state := ControllerState.idle
     }
+
   } 
   
   .elsewhen (state === ControllerState.read) {
@@ -266,7 +274,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     /* at least two AUTO REFRESH cycles
     *  must be performed. */
     memoryCmd := MemCmd.cbrAutoRefresh
-    when (counter===high) {
+    when (counter === high) {
         counter := counter - Bits(1)
         state := ControllerState.initRefresh
     } .otherwise {
@@ -324,14 +332,17 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   }
 
   .elsewhen (state === ControllerState.activate) {
-    // Send ACT signal to mem where addr = OCP addr 22-13, ba1 = OCP addr 24, ba2 = OCP addr 23
-    memoryCmd := MemCmd.bankActivate        
-    ramOut.addr(12,0) := address(12,0)
-    ramOut.ba := address(24,23)
-
     counter := counter - Bits(1)          // Decrement counter, waiting for activation
-    when (counter === Bits(0)) {
-      counter := Bits(ocpBurstLen+2)      // reset burst counter
+    
+    when (counter > Bits(0)) {
+      memoryCmd := MemCmd.bankActivate        
+      ramOut.addr(12,0) := address(23,11)    // Select row
+      ramOut.ba := address(24)
+    }
+    .otherwise {
+      counterAux := counterAux - Bits(1)
+      memoryCmd := MemCmd.noOperation  
+      counter := Bits(ocpBurstLen)        // reset burst counter
       state := tmpState                   // Set next state to read or write
     }
   }
