@@ -252,8 +252,22 @@ set_location_assignment PIN_K8 -to dram_DQM[2]
 set_location_assignment PIN_W4 -to dram_DQM[1]
 set_location_assignment PIN_U2 -to dram_DQM[0]
 
-set_instance_assignment -name IO_STANDARD "2.5 V" -to dram_LED
-set_location_assignment PIN_H15 -to dram_LED
+set_instance_assignment -name IO_STANDARD "2.5 V" -to dram_LED[7]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to dram_LED[6]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to dram_LED[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to dram_LED[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to dram_LED[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to dram_LED[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to dram_LED[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to dram_LED[0]
+set_location_assignment PIN_H15 -to dram_LED[7]
+set_location_assignment PIN_G16 -to dram_LED[6]
+set_location_assignment PIN_G15 -to dram_LED[5]
+set_location_assignment PIN_F15 -to dram_LED[4]
+set_location_assignment PIN_H17 -to dram_LED[3]
+set_location_assignment PIN_J16 -to dram_LED[2]
+set_location_assignment PIN_H16 -to dram_LED[1]
+set_location_assignment PIN_J15 -to dram_LED[0]
 
 set_global_assignment -name ALM_REGISTER_PACKING_EFFORT LOW
 set_global_assignment -name PHYSICAL_SYNTHESIS_EFFORT FAST

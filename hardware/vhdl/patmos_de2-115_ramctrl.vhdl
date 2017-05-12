@@ -32,7 +32,7 @@ entity patmos_top is
     dram_BA   : out std_logic_vector(1 downto 0);   -- Bank Address
     dram_ADDR : out std_logic_vector(12 downto 0);  -- SDRAM Address
     dram_DQM  : out std_logic_vector(3 downto 0);   -- SDRAM byte Data Mask
-    dram_LED  : out std_logic_vector(8 downto 0);   -- LED, for testing purposes (to be removed)
+    dram_LED  : out std_logic_vector(7 downto 0);   -- LED, for testing purposes (to be removed)
 
     -- data bus to and from the chips
     dram_DQ   : inout std_logic_vector(31 downto 0)
@@ -85,7 +85,7 @@ architecture rtl of patmos_top is
       io_sdramControllerPins_ramOut_dqm   : out std_logic_vector(3 downto 0);         
       io_sdramControllerPins_ramOut_dq    : out std_logic_vector(31 downto 0);
       io_sdramControllerPins_ramOut_dqEn  : out std_logic;      
-      io_sdramControllerPins_ramOut_led   : out std_logic_vector(8 downto 0)
+      io_sdramControllerPins_ramOut_led   : out std_logic_vector(7 downto 0)
       );
   end component;
 
