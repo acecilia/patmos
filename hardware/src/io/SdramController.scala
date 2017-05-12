@@ -121,8 +121,8 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   => Frequency to execute the refresh command => 8192/Tref = 8192/0.064 = 128000 times per second => 80MHz/128000 = execute every 625 cycles
   => After issuing the refresh command we have to wait trc => 80MHz*60ns = 4.8 clocks min ≈ 5 clocks 
   */
-  val refreshRate    = 625
-  val trc            = 5
+  val refreshRate    = 625 - 1
+  val trc            = 5 - 1
   val refreshCounter = Reg(init = Bits(refreshRate))
 
   val initCounter    = Reg(init = Bits(initCycles))
@@ -149,7 +149,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   ramOut.we   := low        
   ramOut.cs   := high
 
-  val refreshRateAux    = 8192
+  val refreshRateAux    = 128000
   val counterAux        = Reg(init = Bits(refreshRateAux))
   val ledReg            = Reg(init = Bits(0))
   ramOut.led := ledReg
@@ -169,7 +169,6 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     refreshCounter := refreshCounter - Bits(1)    // Wait until refresh is needed
 
     when (refreshCounter <= Bits(0)) {            // Time to refresh, we use <= to be sure, in case the counter is negative
-        memoryCmd := MemCmd.cbrAutoRefresh        // Send the auto-refresh command for one cycle
         counter := Bits(trc)                      // We have to wait Trc until coming back from auto-refresh
         state := ControllerState.refresh
     } 
@@ -349,11 +348,16 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   }
   
   .elsewhen (state === ControllerState.refresh) {
-      memoryCmd := MemCmd.noOperation       // Wait trc
       counter := counter - Bits(1)
 
-      when (counter <= Bits(0)) {
-        counterAux := counterAux - Bits(1)
+      when (counter === Bits(trc)) {
+        memoryCmd := MemCmd.cbrAutoRefresh  // Send the auto-refresh command for one cycle
+      }
+      .elsewhen (counter > Bits(0)) {
+        memoryCmd := MemCmd.noOperation     // Wait trc
+      }
+      .otherwise {
+        counterAux := counterAux - Bits(1)  // Temporal led test, should blink every second
         refreshCounter := Bits(refreshRate) // Restart the refresh counter
         state := ControllerState.idle       // Go back to idle
       }

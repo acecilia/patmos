@@ -5,6 +5,37 @@ import ocp._
 import io._
 import patmos.Constants._
 
+// Memory controller internal states
+object ControllerState {
+    val waitPll = 0x00
+    val idle = 0x01 
+    val write = 0x02 
+    val read = 0x03 
+    val refresh = 0x04 
+    val activate = 0x05 
+    val initStart = 0x06
+    val initPrecharge = 0x07
+    val initRefresh = 0x08 
+    val initRegister = 0x09
+}
+
+// Memory commands
+object MemCmd {
+    val deviceDeselect = 0x00
+    val noOperation = 0x01
+    val burstStop = 0x02
+    val read = 0x03
+    val readWithAutoPrecharge = 0x04
+    val write = 0x05
+    val writeWithAutoPrecharge = 0x06
+    val bankActivate = 0x07
+    val prechargeSelectBank = 0x08
+    val prechargeAllBanks = 0x09
+    val cbrAutoRefresh = 0x0A
+    val selfRefresh = 0x0B
+    val modeRegisterSet = 0x0C
+}
+
 // It is possible to avoid the default prints of poke, peek, execute and step by extending from Tester(dut, false) instead of Tester(dut)
 class SdramControllerTester(dut: SdramController) extends Tester(dut) {
     
@@ -14,16 +45,45 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
     private val ocpMasterPort = dut.io.ocp.M
     private val ocpSlavePort = dut.io.ocp.S
 
-    println("\n0 waitPll\n1 idle\n2 write\n3 read\n4 refresh\n5 activate\n6 initStart\n7 initPrecharge\n8 initRefresh\n9 initRegister\n\n")
-
     refreshTest()
     
     def refreshTest():Unit = {
-            println("Testing refresh:")
-            poke(ramIn.pllReady, 0x1)
-        step(dut.initCycles+100)
-            expect(dut.state, 0x1)
-            expectStateOrAdvance(state = 4, waitSteps = 1000)
+        println("\nTesting refresh:")
+            poke(ramIn.pllReady, 1)
+        
+        println("\nWait until initialization ends:") // 24388
+        stepUntil(dut.state, ControllerState.idle, 100000)
+            expect(dut.state, ControllerState.idle)
+        
+        println("\nWait until refresh starts:")
+        stepUntil(dut.memoryCmd, MemCmd.cbrAutoRefresh)
+
+        for(a <- 0 until 2){
+            println("\nStay in refresh state during trc:")
+                expect(dut.memoryCmd, MemCmd.cbrAutoRefresh)
+                expect(dut.state, ControllerState.refresh)
+            step(1)
+                expect(dut.memoryCmd, MemCmd.noOperation)
+                expect(dut.state, ControllerState.refresh)
+            step(1)
+                expect(dut.memoryCmd, MemCmd.noOperation)
+                expect(dut.state, ControllerState.refresh)
+            step(1)
+                expect(dut.memoryCmd, MemCmd.noOperation)
+                expect(dut.state, ControllerState.refresh)
+            step(1)
+                expect(dut.memoryCmd, MemCmd.noOperation)
+                expect(dut.state, ControllerState.refresh)
+            step(1)
+
+            println("\nGo back to idle and wait until next refresh:")
+                expect(dut.memoryCmd, MemCmd.noOperation)
+                expect(dut.state, ControllerState.idle)
+            step(624)
+                expect(dut.memoryCmd, MemCmd.noOperation)
+                expect(dut.state, ControllerState.idle)
+            step(1)
+        }
     }
 
     def initTest():Unit = {
@@ -487,17 +547,14 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             expect(dut.state, 0x1)
     }
     
-    def expectStateOrAdvance(state:Int, waitSteps:Int = 10000):Unit = {
-        val initialState = peek(dut.state)
-        for(a <- 0 until waitSteps){
-            val tmpState = peek(dut.state)
-            if(initialState != tmpState || tmpState == state) {
-                expect(dut.state, state)
+    def stepUntil(signal:Bits, value:BigInt, maxWait:Int = 10000):Unit = {
+        for(a <- 0 until maxWait){
+            val tmpSignal = peek(signal)
+            if(tmpSignal == value) {
                 return
             }
             step(1)
         }
-        expect(dut.state, state)
     }
 }
 
