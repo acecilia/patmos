@@ -273,26 +273,6 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     .otherwise {
       state := ControllerState.idle
     }
-
-
-    
-    when(counter === Bits(ocpBurstLen)) {
-      ramOut.addr(9,0) := address(22,13) // Select column
-      ramOut.ba := address(24,23)
-      memoryCmd := MemCmd.writeWithAutoPrecharge
-    } .otherwise { memoryCmd := MemCmd.noOperation }
-    
-    when(counter > Bits(0)) {
-      ramOut.dq := ocpMasterPort.Data
-      ramOut.dqEn := high // byte enable for read (for the tristate)
-      ramOut.dqm := ocpMasterPort.DataByteEn // Subword writing
-      ocpSlavePort.DataAccept := high // Accept data
-    } 
-    .otherwise {
-      ocpSlavePort.Resp := OcpResp.DVA
-      state := ControllerState.idle
-    }
-
   } 
   
   .elsewhen(state === ControllerState.read) {
