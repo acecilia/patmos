@@ -351,23 +351,23 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     /* Write Burst Mode
     *  0    Programmed Burst Length
     *  1    Single Location Access   */
-    ramOut.addr(9)       := low
+    ramOut.addr(9) := Bits(0)
     
     /* Operating mode 
     *  00   Standard Operation 
     *  --   Reserved            */
-    ramOut.addr(8,7)     := low
+    ramOut.addr(8,7) := Bits(0)
     
     /* Latency mode 
     *  010  2 cycles
     *  011  3 cycles
     *  ---  Reserved            */
-    ramOut.addr(6,4)     := Bits (2)
+    ramOut.addr(6,4) := Bits(2)
     
     /* Burst Type
     *  0    Sequential
     *  1    Interleaved         */
-    ramOut.addr(3)     := low
+    ramOut.addr(3) := Bits(0)
     
     /* Burst Length
     *  000  1
@@ -376,7 +376,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     *  011  8
     *  111  Full Page (for sequential type only)
     *  ---  Reserved            */
-    ramOut.addr(2,0)     := Bits(2) // Burst Length TODO: make this dynamic
+    ramOut.addr(2,0)     := Bits(7) // Burst Length Full Page
     
     memoryCmd := MemCmd.modeRegisterSet
     state := ControllerState.idle
