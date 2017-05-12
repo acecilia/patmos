@@ -77,7 +77,7 @@ object SdramController extends DeviceObject {
         val we   = Bits(OUTPUT, 1)
         val cs   = Bits(OUTPUT, 1)
         val dqEn = Bits(OUTPUT, 1)
-        val led  = Bits(OUTPUT, 1)
+        val led  = Bits(OUTPUT, 8)
 
         // Need to add the memoryCmd in the sdramControllerPins for being able to test it
         val memoryCmd = UInt(OUTPUT)
@@ -137,15 +137,15 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   ramOut.cs   := high
 
   val refreshRateAux    = 1
-  val counterAux        = Reg(init = Bits(refreshRateAux))  
-  val ledReg            = Reg(init = high)
+  //val counterAux        = Reg(init = Bits(refreshRateAux))
+  
+  val ledReg            = Reg(init = Bits(0))
 
   ramOut.led := ledReg
 
-  when (counterAux === Bits(0)) {
-    ledReg := ~ledReg
-    counterAux := Bits(refreshRateAux)
-  }
+  //when (counterAux === Bits(0)) {
+  //  counterAux := Bits(refreshRateAux)
+  //}
 
   // state machine for the ocp signal
   when(state === ControllerState.waitPll) {
@@ -163,6 +163,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     } 
 
     .elsewhen (ocpCmd === OcpCmd.RD) {
+        ledReg(4) := high
         // counterAux := counterAux - Bits(1)
         address := ocpMasterPort.Addr             // Save address for later use
         tmpState := ControllerState.read          // Set future state
@@ -179,6 +180,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     }
     
     .elsewhen (ocpCmd === OcpCmd.WR) {  
+        ledReg(2) := high
         address := ocpMasterPort.Addr             // Save address for later use
         
         // Activate row
@@ -194,6 +196,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     }
     
     .elsewhen (ocpCmd === OcpCmd.IDLE) {
+        ledReg(1) := high
         // Send Nop
         // Set next state to idle
     }
@@ -204,6 +207,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   } 
   
   .elsewhen (state === ControllerState.write) {
+   ledReg(3) := high
     counter := counter - Bits(1)
     
     when (counter === Bits(ocpBurstLen)) {
@@ -226,6 +230,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   } 
   
   .elsewhen (state === ControllerState.read) {
+    ledReg(5) := high
     ramOut.dqEn := low
     counter := counter - Bits(1)
 
@@ -246,6 +251,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   
   // The following is all part of the initialization phase
   .elsewhen (state === ControllerState.initStart) {
+    ledReg(6) := high
     /* The 512Mb SDRAM is initialized after the power is applied
     *  to Vdd and Vddq (simultaneously) and the clock is stable
     *  with DQM High and CKE High. */
@@ -268,6 +274,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   }
 
   .elsewhen (state === ControllerState.initPrecharge) {
+    ledReg(7) := high
     /* With at least one COMMAND INHIBIT or NOP command
     *  having been applied, a PRECHARGE command should
     *  be applied once the 100μs delay has been satisfied. All
@@ -290,6 +297,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   } 
 
   .elsewhen (state === ControllerState.initRegister) {
+    ledReg(8) := high
     /* The mode register should be loaded prior to applying
     * any operational command because it will power up in an
     * unknown state. */
@@ -333,7 +341,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
 
       counter := counter - Bits(1)          // Decrement counter, waiting for refreshing
       when (counter === Bits(0)) {
-        ledReg := ~ledReg
+        ledReg(0) := ~ledReg(0)
         refreshCounter := Bits(refreshRate) // Restart the refresh counter
         state := ControllerState.idle       // Go back to idle
       }
@@ -344,7 +352,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     memoryCmd := MemCmd.noOperation       // sending no operation
     
     when (counter === Bits(0)) { 
-        counterAux := counterAux - Bits(1)
+        //counterAux := counterAux - Bits(1)
         when (tmpState === ControllerState.read) { counter := Bits(ocpBurstLen+1) }
         .otherwise                               { counter := Bits(ocpBurstLen) }
         state := tmpState
