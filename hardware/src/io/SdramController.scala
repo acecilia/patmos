@@ -157,8 +157,9 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     memoryCmd := MemCmd.noOperation               // When idle, the memory is in noOperation state
     refreshCounter := refreshCounter - Bits(1)    // Wait until refresh is needed
 
-    when (refreshCounter < Bits(1)) {             // Time to refresh
-        counter := Bits(4)
+    when (refreshCounter < Bits(3+ocpBurstLen)) {             // Time to refresh
+        memoryCmd := MemCmd.cbrAutoRefresh
+        counter := Bits(8192) // number of times to refresh
         state := ControllerState.refresh
     } 
 
@@ -281,14 +282,14 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     *  banks must be precharged. */
     memoryCmd := MemCmd.prechargeAllBanks
     state := ControllerState.initRefresh
-    counter := Bits(3)
-    
+    counter := Bits(8192*2+1) // two times refresh count plus two commands minus 0 index
   }
 
   .elsewhen (state === ControllerState.initRefresh) {
     /* at least two AUTO REFRESH cycles
     *  must be performed. */
-    when (counter === Bits(3) || counter === Bits(1))  { memoryCmd := MemCmd.cbrAutoRefresh } 
+    when (counter === Bits(8192*2+1) || counter === Bits(8192))  { memoryCmd := MemCmd.cbrAutoRefresh } 
+    .otherwise { memoryCmd := MemCmd.noOperation }
     
     when (counter === Bits(0) ) { state := ControllerState.initRegister }  
     .otherwise                  { state := ControllerState.initRefresh  }
@@ -336,15 +337,15 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     state := ControllerState.idle
   }
   
+  // The command is send from idle. This is sending nop to ram.
   .elsewhen (state === ControllerState.refresh) {
-      memoryCmd := MemCmd.cbrAutoRefresh    // Order auto-refresh
-
+      memoryCmd := MemCmd.noOperation    // Order auto-refresh
       counter := counter - Bits(1)          // Decrement counter, waiting for refreshing
       when (counter === Bits(0)) {
         ledReg(0) := ~ledReg(0)
         refreshCounter := Bits(refreshRate) // Restart the refresh counter
         state := ControllerState.idle       // Go back to idle
-      }
+      } .otherwise { state := ControllerState.refresh }
   }
 
   .elsewhen (state === ControllerState.activate) {

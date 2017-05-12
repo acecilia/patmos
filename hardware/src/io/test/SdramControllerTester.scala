@@ -16,7 +16,7 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
 
     println("\n0 waitPll\n1 idle\n2 write\n3 read\n4 refresh\n5 activate\n6 initStart\n7 initPrecharge\n8 initRefresh\n9 initRegister\n\n")
 
-    readTest()
+    initTest()
     
     def initTest():Unit = {
         println("Testing Initialization: ")
@@ -49,7 +49,7 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             expect(ramOut.cas, 0x0)
             expect(ramOut.we, 0x1)
             expect(dut.state, 0x8)
-        step(1)
+        step(8192)
             println("\nNo operation")
             expect(ramOut.cs, 0x0)
             expect(ramOut.ras, 0x1)
@@ -63,7 +63,7 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             expect(ramOut.cas, 0x0)
             expect(ramOut.we, 0x1)
             expect(dut.state, 0x8)
-        step(1)
+        step(8192)
             println("\nNo operation")
             expect(ramOut.cs, 0x0)
             expect(ramOut.ras, 0x1)
