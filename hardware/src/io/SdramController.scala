@@ -110,9 +110,22 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   val tmpState       = Reg(init = ControllerState.initStart)
 
   val initCycles     = (0.0001*clockFreq).toInt // Calculate number of cycles for init from processor clock freq
+
+  /*
+  Refresh rate:
+  From the datasheet: (trc) is required for a single refresh operation, and no other commands can be executed during this period. This command is executed at least 8192 times for every Tref period.
+  -> KEY TIMING PARAMETERS for the SDRAM on the DE2-115 = -7
+  -> trc(-7) = 60ns min
+  -> Tref = 64ms max
+
+  => Frequency to execute the refresh command => 8192/Tref = 8192/0.064 = 128000 times per second => 80MHz/128000 = execute every 625 cycles
+  => After issuing the refresh command we have to wait trc => 80MHz*60ns = 4.8 clocks min ≈ 5 clocks 
+  */
   val refreshRate    = 625
-  val initCounter    = Reg(init = Bits(initCycles))
+  val trc            = 5
   val refreshCounter = Reg(init = Bits(refreshRate))
+
+  val initCounter    = Reg(init = Bits(initCycles))
   val counter        = Reg(init = Bits(0))
 
   // Default value for signals
@@ -136,16 +149,14 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   ramOut.we   := low        
   ramOut.cs   := high
 
-  val refreshRateAux    = 1
-  //val counterAux        = Reg(init = Bits(refreshRateAux))
-  
+  val refreshRateAux    = 8192
+  val counterAux        = Reg(init = Bits(refreshRateAux))
   val ledReg            = Reg(init = Bits(0))
-
   ramOut.led := ledReg
-
-  //when (counterAux === Bits(0)) {
-  //  counterAux := Bits(refreshRateAux)
-  //}
+  when (counterAux === Bits(0)) {
+    ledReg(0) := ~ledReg(0)
+    counterAux := Bits(refreshRateAux)
+  }
 
   // state machine for the ocp signal
   when(state === ControllerState.waitPll) {
@@ -157,9 +168,9 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     memoryCmd := MemCmd.noOperation               // When idle, the memory is in noOperation state
     refreshCounter := refreshCounter - Bits(1)    // Wait until refresh is needed
 
-    when (refreshCounter < Bits(3+ocpBurstLen)) {             // Time to refresh
-        memoryCmd := MemCmd.cbrAutoRefresh
-        counter := Bits(8192) // number of times to refresh
+    when (refreshCounter <= Bits(0)) {            // Time to refresh, we use <= to be sure, in case the counter is negative
+        memoryCmd := MemCmd.cbrAutoRefresh        // Send the auto-refresh command for one cycle
+        counter := Bits(trc)                      // We have to wait Trc until coming back from auto-refresh
         state := ControllerState.refresh
     } 
 
@@ -337,15 +348,15 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     state := ControllerState.idle
   }
   
-  // The command is send from idle. This is sending nop to ram.
   .elsewhen (state === ControllerState.refresh) {
-      memoryCmd := MemCmd.noOperation    // Order auto-refresh
-      counter := counter - Bits(1)          // Decrement counter, waiting for refreshing
-      when (counter === Bits(0)) {
-        ledReg(0) := ~ledReg(0)
+      memoryCmd := MemCmd.noOperation       // Wait trc
+      counter := counter - Bits(1)
+
+      when (counter <= Bits(0)) {
+        counterAux := counterAux - Bits(1)
         refreshCounter := Bits(refreshRate) // Restart the refresh counter
         state := ControllerState.idle       // Go back to idle
-      } .otherwise { state := ControllerState.refresh }
+      }
   }
 
   .elsewhen (state === ControllerState.activate) {

@@ -16,8 +16,16 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
 
     println("\n0 waitPll\n1 idle\n2 write\n3 read\n4 refresh\n5 activate\n6 initStart\n7 initPrecharge\n8 initRefresh\n9 initRegister\n\n")
 
-    initTest()
+    refreshTest()
     
+    def refreshTest():Unit = {
+            println("Testing refresh:")
+            poke(ramIn.pllReady, 0x1)
+        step(dut.initCycles+100)
+            expect(dut.state, 0x1)
+            expectStateOrAdvance(state = 4, waitSteps = 1000)
+    }
+
     def initTest():Unit = {
         println("Testing Initialization: ")
             poke(ramIn.pllReady, 0x1)
@@ -36,11 +44,8 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             expect(dut.state, 0x6)
         step(1)
             println("\nprecharge all banks")
-            expect(ramOut.cs, 0x0)
-            expect(ramOut.ras, 0x0)
-            expect(ramOut.cas, 0x1)
-            expect(ramOut.we, 0x0)
             expect(ramOut.addr, 0x400)
+            expect(dut.memoryCmd, 0x09)
             expect(dut.state, 0x7)
         step(1)
             println("\nRefresh nr. 1")
