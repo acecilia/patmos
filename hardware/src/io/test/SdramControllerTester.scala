@@ -36,6 +36,13 @@ object MemCmd {
     val modeRegisterSet = 0x0C
 }
 
+// Memory controller internal states
+object OcpCmd {
+    val IDLE = 0x00
+    val WR = 0x01 
+    val RD = 0x02 
+}
+
 // It is possible to avoid the default prints of poke, peek, execute and step by extending from Tester(dut, false) instead of Tester(dut)
 class SdramControllerTester(dut: SdramController) extends Tester(dut) {
     
@@ -45,13 +52,42 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
     private val ocpMasterPort = dut.io.ocp.M
     private val ocpSlavePort = dut.io.ocp.S
 
-    refreshTest()
+    activateTest()
     
+    def activateTest():Unit = {
+        println("\nTesting activation:")
+            poke(ramIn.pllReady, 1)
+        
+        println("\nWait until initialization ends:")
+        stepUntil(dut.state, ControllerState.idle, 100000)
+            expect(dut.state, ControllerState.idle)
+        
+        step(1)
+        println("\nSimulate a write, for the activation:")
+            poke(ocpMasterPort.Cmd, OcpCmd.WR)
+            poke(ocpMasterPort.Addr, 0x1555554) // 10*1010101010*1010101010100
+            poke(ocpMasterPort.Data, 0x25)
+            poke(ocpMasterPort.DataByteEn, 0xf)
+            poke(ocpMasterPort.DataValid, 1)
+            expect(dut.state, ControllerState.idle)
+        step(1)
+        println("\nStay in activation state during trcd:")
+            expect(dut.memoryCmd, MemCmd.bankActivate)
+            expect(ramOut.addr, 0x1554)            // Row: 1010101010100
+            expect(ramOut.ba, 0x02)                // Bank: 10
+            expect(dut.state, ControllerState.activate)
+        step(1)
+            expect(dut.memoryCmd, MemCmd.noOperation)
+            expect(dut.state, ControllerState.activate)
+        step(1)
+            expect(dut.state, ControllerState.write)
+    }
+
     def refreshTest():Unit = {
         println("\nTesting refresh:")
             poke(ramIn.pllReady, 1)
         
-        println("\nWait until initialization ends:") // 24388
+        println("\nWait until initialization ends:")
         stepUntil(dut.state, ControllerState.idle, 100000)
             expect(dut.state, ControllerState.idle)
         
