@@ -56,8 +56,9 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             expect(dut.state, ControllerState.idle)
         
         println("\nWait until refresh starts:")
-        stepUntil(dut.memoryCmd, MemCmd.cbrAutoRefresh)
+        stepUntil(dut.state, ControllerState.refresh)
 
+        // Execute this part of the test two times, to be sure it works
         for(a <- 0 until 2){
             println("\nStay in refresh state during trc:")
                 expect(dut.memoryCmd, MemCmd.cbrAutoRefresh)
