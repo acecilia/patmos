@@ -52,13 +52,14 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
     private val ocpMasterPort = dut.io.ocp.M
     private val ocpSlavePort = dut.io.ocp.S
 
+    poke(ramIn.pllReady, 1)
+    refreshTest()
     activateTest()
+
     
     def activateTest():Unit = {
         println("\nTesting activation:")
-            poke(ramIn.pllReady, 1)
-        
-        println("\nWait until initialization ends:")
+        println("\nWait until idle state:")
         stepUntil(dut.state, ControllerState.idle, 100000)
             expect(dut.state, ControllerState.idle)
         
@@ -85,12 +86,10 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
 
     def refreshTest():Unit = {
         println("\nTesting refresh:")
-            poke(ramIn.pllReady, 1)
-        
-        println("\nWait until initialization ends:")
+        println("\nWait until idle state:")
         stepUntil(dut.state, ControllerState.idle, 100000)
             expect(dut.state, ControllerState.idle)
-        
+
         println("\nWait until refresh starts:")
         stepUntil(dut.state, ControllerState.refresh)
 
