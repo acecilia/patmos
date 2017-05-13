@@ -65,7 +65,7 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
 
         println("\nSimulate a write, for the activation:")
             poke(ocpMasterPort.Cmd, OcpCmd.WR)
-            poke(ocpMasterPort.Addr, 0x1555554) // 10*1010101010*1010101010100
+            poke(ocpMasterPort.Addr, 0x1555554) // 10*1010101010101*0101010100
             poke(ocpMasterPort.Data, 0x25)
             poke(ocpMasterPort.DataByteEn, 0xf)
             poke(ocpMasterPort.DataValid, 1)
@@ -73,7 +73,7 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
         step(1)
         println("\nStay in activation state during trcd:")
             expect(dut.memoryCmd, MemCmd.bankActivate)
-            expect(ramOut.addr, 0x1554)            // Row: 1010101010100
+            expect(ramOut.addr, 0x1555)            // Row: 1010101010101
             expect(ramOut.ba, 0x02)                // Bank: 10
             expect(dut.state, ControllerState.activate)
         step(1)
@@ -311,7 +311,7 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
 
             println("\nOrder one write")
             poke(ocpMasterPort.Cmd, OcpCmd.WR)
-            poke(ocpMasterPort.Addr, 0x1555554) // 10*1010101010*1010101010100
+            poke(ocpMasterPort.Addr, 0x1555554) // 10*1010101010101*0101010100
             poke(ocpMasterPort.Data, data(0))
             poke(ocpMasterPort.DataValid, 1)
             poke(ocpMasterPort.DataByteEn, 0xf)
@@ -325,7 +325,7 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             expect(ocpSlavePort.DataAccept, 0x1)
             expect(dut.state, ControllerState.write)
             expect(ramOut.ba, 0x02) // 10 bank
-            expect(ramOut.addr, 0x6AA) // 1(A10, auto-precharge)*1010101010 column
+            expect(ramOut.addr, 0x554) // Column: 1(A10, auto-precharge)*0101010100
             expect(ramOut.dq, data(0))
             expect(dut.memoryCmd, MemCmd.writeWithAutoPrecharge)
         step(1)

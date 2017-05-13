@@ -69,7 +69,7 @@ object SdramController extends DeviceObject {
         val dqm = Bits(OUTPUT, 4)
 
         // Common signals for the two 64MB SDRAM devices
-        val addr = Bits(OUTPUT, sdramDataWidth)
+        val addr = Bits(OUTPUT, sdramAddrWidth)
         val ba   = Bits(OUTPUT, 2)
         val cke  = Bits(OUTPUT, 1)
         val ras  = Bits(OUTPUT, 1)
@@ -111,7 +111,6 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
 
   val state          = Reg(init = ControllerState.waitPll) // Controller state
   val memoryCmd      = io.sdramControllerPins.ramOut.memoryCmd
-  val address        = Reg(init = Bits(0))
   val tmpState       = Reg(init = ControllerState.initStart)
 
   val initCycles     = (0.0001*clockFreq).toInt // Calculate number of cycles for init from processor clock freq
@@ -146,6 +145,20 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   => After issuing the precharge command we have to wait trp => 80MHz*15ns = 1.2 clocks min ≈ 2 clocks (also for auto-precharge)
   */
   val trp           = 2
+
+  /*
+  Address mapping according to Luca's code:
+    constant COL_LOW_BIT : integer := 0;
+    constant ROW_LOW_BIT : integer := COL_LOW_BIT + SDRAM.COL_WIDTH; -- 10
+    constant BA_LOW_BIT  : integer := ROW_LOW_BIT + SDRAM.ROW_WIDTH; -- 10+13=23
+  */
+  val column = Bits(width = 10)
+  val row    = Bits(width = 13)
+  val bank   = Bits(width = 2)
+  column := ocpMasterPort.Addr(9,0)
+  row    := ocpMasterPort.Addr(22,10)
+  bank   := ocpMasterPort.Addr(24,23)
+
 
   val initCounter    = Reg(init = Bits(initCycles))
   val counter        = Reg(init = Bits(0))
@@ -197,7 +210,6 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
 
     .elsewhen(ocpCmd === OcpCmd.RD || ocpCmd === OcpCmd.WR) {
         ledReg(4) := high
-        address := ocpMasterPort.Addr             // Save address for later use
         
         // Set state to jump to after activation
         when(ocpCmd === OcpCmd.RD) {
@@ -212,7 +224,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     
     .elsewhen(ocpCmd === OcpCmd.WR) {  
         ledReg(2) := high
-        address := ocpMasterPort.Addr             // Save address for later use
+        // address := ocpMasterPort.Addr             // Save address for later use
         tmpState := ControllerState.write         // Set future state
         
         counter := Bits(trcd)                     // Prepare next state: activate
@@ -255,8 +267,8 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
       */
       ocpSlavePort.CmdAccept := high            // send accept to ocp
 
-      ramOut.addr(9,0) := address(22,13)        // Select column
-      ramOut.ba := address(24,23)
+      ramOut.addr := column
+      ramOut.ba := bank
     }
     .elsewhen(counter > Bits(trp)) {
       memoryCmd := MemCmd.noOperation
@@ -280,8 +292,8 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
 
     when(counter === Bits(ocpBurstLen+1)) {
         memoryCmd := MemCmd.readWithAutoPrecharge
-        ramOut.addr(9,0) := address(22,13)
-        ramOut.ba := address(24,23)
+        ramOut.addr(9,0) := column
+        ramOut.ba := bank
     } .otherwise { memoryCmd := MemCmd.noOperation }
 
     when(counter < Bits(ocpBurstLen)) {
@@ -394,8 +406,8 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
 
     when(counter === Bits(trcd)) {
       memoryCmd := MemCmd.bankActivate        
-      ramOut.addr(12,0) := ocpMasterPort.Addr(12,0) // Activate row
-      ramOut.ba := ocpMasterPort.Addr(24,23) // Activate bank
+      ramOut.addr(12,0) := row                // Activate row
+      ramOut.ba := bank                       // Activate bank
     }
     .elsewhen(counter > Bits(1)) {
       memoryCmd := MemCmd.noOperation     // Wait trcd
