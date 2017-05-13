@@ -49,7 +49,7 @@ import patmos.Constants._
 object SdramController extends DeviceObject {
   private var sdramAddrWidth = 13
   private var sdramDataWidth = 32
-  private var ocpAddrWidth   = 25 // MAddr = Address, byte-based, lowest two bits always 0
+  private var ocpAddrWidth   = 27 // MAddr = Address, byte-based, lowest two bits always 0
 
   def init(params: Map[String, String]) = {
     sdramAddrWidth  = getPosIntParam(params, "sdramAddrWidth")
@@ -148,16 +148,20 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
 
   /*
   Address mapping according to Luca's code:
-    constant COL_LOW_BIT : integer := 0;
-    constant ROW_LOW_BIT : integer := COL_LOW_BIT + SDRAM.COL_WIDTH; -- 10
-    constant BA_LOW_BIT  : integer := ROW_LOW_BIT + SDRAM.ROW_WIDTH; -- 10+13=23
+  ocpMaster.MAddr              => M_Addr(26 downto 2)
+  
+  constant CS_WIDTH    : integer := 0; -- 1 rank
+  constant COL_LOW_BIT : integer := 0;
+  constant ROW_LOW_BIT : integer := COL_LOW_BIT + SDRAM.COL_WIDTH; -- 10
+  constant BA_LOW_BIT  : integer := ROW_LOW_BIT + SDRAM.ROW_WIDTH; -- 10+13=23
+  constant CS_LOW_BIT  : integer := BA_LOW_BIT + SDRAM.BA_WIDTH; -- 23+2=25
   */
   val column = Bits(width = 10)
   val row    = Bits(width = 13)
   val bank   = Bits(width = 2)
-  column := ocpMasterPort.Addr(9,0)
-  row    := ocpMasterPort.Addr(22,10)
-  bank   := ocpMasterPort.Addr(24,23)
+  column := ocpMasterPort.Addr(11,2)
+  row    := ocpMasterPort.Addr(24,12)
+  bank   := ocpMasterPort.Addr(26,25)
 
 
   val initCounter    = Reg(init = Bits(initCycles))
