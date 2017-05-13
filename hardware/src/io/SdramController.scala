@@ -150,7 +150,7 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   /*
   READ TIME
   */
-  val tread = ocpBurstLen + max(tcas, trp)
+  val tread = ocpBurstLen + max(tcas, trp + 1 /*Burst term cycle*/)
 
   /*
   ADDRESS MAPPING
@@ -279,7 +279,7 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
       }
 
       ramOut.dq := ocpMasterPort.Data
-      ramOut.dqEn := high                       // byte enable for read (for the tristate)
+      ramOut.dqEn := high                       // byte enable for write (for the tristate)
       /*
       We have to invert the level of DataByteEn when passing it to dqm.
       From the OCP specification document: there is one bit in MDataByteEn for each byte in the OCP word. Setting MDataByteEn[n] to 1 indicates that the byte associated with MData wires [(8n + 7):8n] should be transferred
@@ -342,22 +342,24 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
     // Start read
     when(counter === Bits(tread)) {
       memoryCmd := MemCmd.readWithAutoPrecharge
-      ramOut.addr(9,0) := column
+      ramOut.addr := column
       ramOut.ba := bank
       ramOut.dqm := low
     }
     // Wait until burst finishes
-    .elsewhen(counter > Bits(tread - ocpBurstLen + 1)) {
+    .elsewhen(counter > Bits(tread - ocpBurstLen)) {
       memoryCmd := MemCmd.noOperation
       ramOut.dqm := low
     }
+    /*
+    From the datasheet: The BURST TERMINATE command should be issued x cycles before the clock edge at which the last desired data element is valid, where x equals the CAS latency minus one.
+    */
     // Stop burst
-    .elsewhen(counter === Bits(tread - ocpBurstLen + 1)) {
+    .elsewhen(counter === Bits(tread - ocpBurstLen)) {
       memoryCmd := MemCmd.burstStop
-      ramOut.dqm := low
     }
     // Wait for trp
-    .elsewhen(counter > Bits(tread - ocpBurstLen - trp)) {
+    .elsewhen(counter >= Bits(1)) {
       memoryCmd := MemCmd.noOperation 
 
       when(counter === Bits(1)) {
@@ -467,7 +469,7 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
 
     when(counter === Bits(trcd)) {
       memoryCmd := MemCmd.bankActivate        
-      ramOut.addr(12,0) := row                // Activate row
+      ramOut.addr := row                // Activate row
       ramOut.ba := bank                       // Activate bank
     }
     .elsewhen(counter > Bits(1)) {

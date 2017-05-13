@@ -315,6 +315,7 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             poke(ocpMasterPort.Cmd, OcpCmd.RD)
             poke(ocpMasterPort.Addr, 0x5555554) // 10(bank)*1010101010101(row)*0101010101(column)*00(2 dummy bits from OCP)
 
+            expect(ocpSlavePort.CmdAccept, 0x0)
             expect(dut.state, ControllerState.idle)
             expect(dut.memoryCmd, MemCmd.noOperation)
 
@@ -333,31 +334,38 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             expect(ramOut.dqm, 0x0)
             expect(dut.memoryCmd, MemCmd.noOperation)
         step(1)
+
         println("\nAfter Tcas, the data starts flowing to OCP:")
-            poke(ramIn.dq, data(0))
-            expect(ocpSlavePort.Data, data(0))
-            expect(ocpSlavePort.CmdAccept, 0x0)
-            expect(dut.state, ControllerState.read)
-            expect(ramOut.dqm, 0x0)
-            expect(dut.memoryCmd, MemCmd.noOperation)
-        step(1)
-        println("\nBurst stop is in the same clock cycle as the last transmission, Meanwhile, data continues flowing to OCP due to Tcas delay:")
-            poke(ramIn.dq, data(1))
-            expect(ocpSlavePort.Data, data(1))
-            expect(ocpSlavePort.CmdAccept, 0x0)
-            expect(dut.state, ControllerState.read)
-            expect(ramOut.dqm, 0x0)
-            expect(dut.memoryCmd, MemCmd.burstStop)
-        println("\nWait for precharge while data continues being sent to OCP:")
-        step(1)
+        for(i <- 0 until data.length - 2){
+                poke(ramIn.dq, data(i))
+
+                expect(ocpSlavePort.Data, data(i))
+                expect(ocpSlavePort.CmdAccept, 0x0)
+                expect(dut.state, ControllerState.read)
+                expect(ramOut.dqm, 0x0)
+                expect(ramOut.dqEn, 0x0)
+                expect(dut.memoryCmd, MemCmd.noOperation)   
+            step(1)
+        }
+        println("\nBurst stop is one cycle prior the last valid data:")
             poke(ramIn.dq, data(2))
+
             expect(ocpSlavePort.Data, data(2))
             expect(ocpSlavePort.CmdAccept, 0x0)
             expect(dut.state, ControllerState.read)
-            expect(dut.memoryCmd, MemCmd.noOperation)
+            expect(ramOut.dqEn, 0x0)
+            expect(dut.memoryCmd, MemCmd.burstStop)
+
+        println("\nWait for precharge while data continues being sent to OCP:")
         step(1)
             poke(ramIn.dq, data(3))
+
             expect(ocpSlavePort.Data, data(3))
+            expect(ocpSlavePort.CmdAccept, 0x0)
+            expect(dut.state, ControllerState.read)
+            expect(ramOut.dqEn, 0x0)
+            expect(dut.memoryCmd, MemCmd.noOperation)
+        step(1)
             expect(ocpSlavePort.CmdAccept, 0x0)
             expect(dut.state, ControllerState.read)
             expect(dut.memoryCmd, MemCmd.noOperation)
@@ -380,6 +388,7 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             poke(ocpMasterPort.DataValid, 1)
             poke(ocpMasterPort.DataByteEn, 0xf)
 
+            expect(ocpSlavePort.CmdAccept, 0x0)
             expect(dut.state, ControllerState.idle)
             expect(dut.memoryCmd, MemCmd.noOperation)
 
@@ -391,6 +400,8 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             expect(ramOut.ba, 0x02) // 10 bank
             expect(ramOut.addr, 0x555) // Column: 1(A10, auto-precharge)*0101010101
             expect(ramOut.dq, data(0))
+            expect(ramOut.dqm, 0x0)
+            expect(ramOut.dqEn, 0x1)
             expect(dut.memoryCmd, MemCmd.writeWithAutoPrecharge)
         step(1)
         for(i <- 1 until data.length){
@@ -400,6 +411,8 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
                 expect(ocpSlavePort.DataAccept, 0x1)
                 expect(dut.state, ControllerState.write)
                 expect(ramOut.dq, data(i))
+                expect(ramOut.dqm, 0x0)
+                expect(ramOut.dqEn, 0x1)
                 expect(dut.memoryCmd, MemCmd.noOperation)
             step(1)
         }
