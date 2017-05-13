@@ -491,13 +491,10 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
 }
 
 object SdramControllerTester {
-    var sdramAddrWidth = 13
-    var sdramDataWidth = 32
-    var ocpAddrWidth   = 27
     var ocpBurstLen    = 4
     
     def main(args: Array [ String ]): Unit = {
         chiselMainTest(Array("--genHarness", "--test", "--backend", "c", "--compile", "--targetDir", "generated"), 
-       () => Module(new SdramController(sdramAddrWidth, sdramDataWidth, ocpAddrWidth, ocpBurstLen))) { c => new SdramControllerTester(c) }
+       () => Module(new SdramController(ocpBurstLen))) { c => new SdramControllerTester(c) }
     }
 }

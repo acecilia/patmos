@@ -49,16 +49,14 @@ import patmos.Constants._
 object SdramController extends DeviceObject {
   private var sdramAddrWidth = 13
   private var sdramDataWidth = 32
-  private var ocpAddrWidth   = 27 // MAddr = Address, byte-based, lowest two bits always 0
+  private var ocpAddrWidth   = 27 // bank(2) + row(13) + column(10) + OcpMAddrDummyBits(2) = 27
 
   def init(params: Map[String, String]) = {
-    sdramAddrWidth  = getPosIntParam(params, "sdramAddrWidth")
     sdramDataWidth  = getPosIntParam(params, "sdramDataWidth")
-    ocpAddrWidth    = getPosIntParam(params, "ocpAddrWidth")
   }
 
   def create(params: Map[String, String]): SdramController = {
-    Module(new SdramController(sdramAddrWidth, sdramDataWidth, ocpAddrWidth, ocpBurstLen=BURST_LENGTH))
+    Module(new SdramController(ocpBurstLen=BURST_LENGTH))
   }
 
   trait Pins {
@@ -90,9 +88,8 @@ object SdramController extends DeviceObject {
   }
 }
 
-class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int, 
-  ocpAddrWidth: Int, ocpBurstLen : Int) extends BurstDevice(ocpAddrWidth) {
-  override val io  = new BurstDeviceIO(ocpAddrWidth) with SdramController.Pins
+class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocpAddrWidth) {
+  override val io  = new BurstDeviceIO(SdramController.ocpAddrWidth) with SdramController.Pins
   
   /*
   General information:
@@ -147,9 +144,12 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   val trp           = 2
 
   /*
-  Address mapping according to Luca's code:
-  ocpMaster.MAddr              => M_Addr(26 downto 2)
+  ADDRESS MAPPING
+  From the PATMOS manual: MAddr = Address, byte-based, lowest two bits always 0
   
+  According to Luca's code:
+  ocpMaster.MAddr              => M_Addr(26 downto 2)
+
   constant CS_WIDTH    : integer := 0; -- 1 rank
   constant COL_LOW_BIT : integer := 0;
   constant ROW_LOW_BIT : integer := COL_LOW_BIT + SDRAM.COL_WIDTH; -- 10
@@ -188,7 +188,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   ramOut.we   := low        
   ramOut.cs   := high
 
-  val refreshRateAux    = 128000
+  val refreshRateAux    = 1000
   val counterAux        = Reg(init = Bits(refreshRateAux))
   val ledReg            = Reg(init = Bits(0))
   ramOut.led := ledReg
@@ -285,6 +285,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
       memoryCmd := MemCmd.noOperation           // Wait trp
     }
     .otherwise {
+      counterAux := counterAux - Bits(1)  // Temporal led test, should blink every second
       state := ControllerState.idle
     }
   } 
@@ -399,7 +400,6 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
         memoryCmd := MemCmd.noOperation     // Wait trc
       }
       .otherwise {
-        counterAux := counterAux - Bits(1)  // Temporal led test, should blink every second
         refreshCounter := Bits(refreshRate) // Restart the refresh counter
         state := ControllerState.idle       // Go back to idle
       }

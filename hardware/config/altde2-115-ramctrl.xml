@@ -30,9 +30,7 @@
     </Dev>
   <Dev DevType="sdram" entity="SdramController" iface="OcpBurst">
       <params>
-        <param name="sdramAddrWidth" value="13" />
         <param name="sdramDataWidth" value="32" />
-        <param name="ocpAddrWidth" value="27" />
       </params>
   </Dev>
   </Devs>
