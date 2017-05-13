@@ -54,11 +54,40 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
 
     poke(ramIn.pllReady, 1)
 
-    refreshTest()
-    activateTest()
-    writeTest()
-    readTest()
-    
+    intensiveTest()
+
+    def normalTest():Unit = {
+        refreshTest()
+        activateTest()
+        writeTest()
+        readTest()
+    }
+
+    def intensiveTest():Unit = {
+        refreshTest()
+        refreshTest()
+        activateTest()
+        activateTest()
+        writeTest()
+        writeTest()
+        readTest()
+        readTest()
+
+        refreshTest()
+        writeTest()
+        activateTest()
+        readTest()
+        writeTest()
+
+        readTest()
+        refreshTest()
+        writeTest()
+        readTest()
+        activateTest()
+        readTest()
+        activateTest()
+        writeTest()
+    }
 
     def activateTest():Unit = {
         println("\nTesting activation:")
@@ -334,6 +363,7 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             expect(ramOut.dqm, 0x0)
             expect(dut.memoryCmd, MemCmd.noOperation)
         step(1)
+            poke(ocpMasterPort.Cmd, OcpCmd.IDLE)
 
         println("\nAfter Tcas, the data starts flowing to OCP:")
         for(i <- 0 until data.length - 2){
@@ -404,6 +434,8 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             expect(ramOut.dqEn, 0x1)
             expect(dut.memoryCmd, MemCmd.writeWithAutoPrecharge)
         step(1)
+            poke(ocpMasterPort.Cmd, OcpCmd.IDLE)
+
         for(i <- 1 until data.length){
                 poke(ocpMasterPort.Data, data(i))
 
