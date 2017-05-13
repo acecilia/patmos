@@ -340,7 +340,7 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
         println("\nWait until idle state:")
         stepUntil(dut.state, ControllerState.idle, 100000)
 
-            println("\nOrder one read")
+            println("\nOrder one read:")
             poke(ocpMasterPort.Cmd, OcpCmd.RD)
             poke(ocpMasterPort.Addr, 0x5555554) // 10(bank)*1010101010101(row)*0101010101(column)*00(2 dummy bits from OCP)
 
