@@ -297,7 +297,6 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
   
   // The following is all part of the initialization phase
   .elsewhen(state === ControllerState.initStart) {
-    ledReg(6) := high
     /* The 512Mb SDRAM is initialized after the power is applied
     *  to Vdd and Vddq (simultaneously) and the clock is stable
     *  with DQM High and CKE High. */
@@ -317,33 +316,27 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
         state := ControllerState.initPrecharge 
     }
     
-  }
-
-  .elsewhen(state === ControllerState.initPrecharge) {
-    ledReg(7) := high
+  } .elsewhen(state === ControllerState.initPrecharge) {
     /* With at least one COMMAND INHIBIT or NOP command
     *  having been applied, a PRECHARGE command should
     *  be applied once the 100μs delay has been satisfied. All
     *  banks must be precharged. */
     memoryCmd := MemCmd.prechargeAllBanks
     state := ControllerState.initRefresh
-    counter := Bits(4*2+1) // two times refresh count plus two commands minus 0 index
-  }
-
-  .elsewhen(state === ControllerState.initRefresh) {
+    counter := high
+    
+  } .elsewhen(state === ControllerState.initRefresh) {
     /* at least two AUTO REFRESH cycles
     *  must be performed. */
-    when(counter === Bits(4*2+1) || counter === Bits(4))  { memoryCmd := MemCmd.cbrAutoRefresh } 
-    .otherwise { memoryCmd := MemCmd.noOperation }
-    
-    when(counter === Bits(0) ) { state := ControllerState.initRegister }  
-    .otherwise                  { state := ControllerState.initRefresh  }
-
-    counter := counter - Bits(1)
-  } 
-
-  .elsewhen(state === ControllerState.initRegister) {
-    ledReg(8) := high
+    memoryCmd := MemCmd.cbrAutoRefresh
+    when(counter===high) {
+        counter := counter - Bits(1)
+        state := ControllerState.initRefresh
+    } .otherwise {
+        state := ControllerState.initRegister
+    }
+  
+  } .elsewhen(state === ControllerState.initRegister) {
     /* The mode register should be loaded prior to applying
     * any operational command because it will power up in an
     * unknown state. */
@@ -376,7 +369,7 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
     *  011  8
     *  111  Full Page (for sequential type only)
     *  ---  Reserved            */
-    ramOut.addr(2,0)     := Bits(7) // Burst Length Full Page
+    ramOut.addr(2,0) := Bits(7) // Burst Length TODO: make this dynamic
     
     memoryCmd := MemCmd.modeRegisterSet
     state := ControllerState.idle
