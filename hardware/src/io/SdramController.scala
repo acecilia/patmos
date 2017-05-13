@@ -97,20 +97,18 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   */
 
   // Syntactic sugar
-  val clockFreq = 80000000 // util.Config.getConfig.frequency
-  val ocpCmd  = io.ocp.M.Cmd
-  val ocpSlavePort = io.ocp.S
+  val ocpCmd        = io.ocp.M.Cmd
+  val ocpSlavePort  = io.ocp.S
   val ocpMasterPort = io.ocp.M
-  val ramOut = io.sdramControllerPins.ramOut
-  val ramIn = io.sdramControllerPins.ramIn
-  val high = Bits("b1")
-  val low  = Bits("b0")
+  val ramOut        = io.sdramControllerPins.ramOut
+  val ramIn         = io.sdramControllerPins.ramIn
+  val memoryCmd     = io.sdramControllerPins.ramOut.memoryCmd
+  val high          = Bits("b1")
+  val low           = Bits("b0")
 
   val state          = Reg(init = ControllerState.waitPll) // Controller state
-  val memoryCmd      = io.sdramControllerPins.ramOut.memoryCmd
-  val tmpState       = Reg(init = ControllerState.initStart)
-
-  val initCycles     = (0.0001*clockFreq).toInt // Calculate number of cycles for init from processor clock freq
+  val tmpState       = Reg(init = ControllerState.idle)
+  val initCycles     = 8000
 
   /*
   REFRESH
@@ -132,7 +130,7 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
 
   => After issuing the activate command we have to wait trcd => 80MHz*15ns = 1.2 clocks min ≈ 2 clocks 
   */
-  val trcd           = 2
+  val trcd = 2
 
   /*
   PRECHARGE
@@ -141,7 +139,7 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
 
   => After issuing the precharge command we have to wait trp => 80MHz*15ns = 1.2 clocks min ≈ 2 clocks (also for auto-precharge)
   */
-  val trp           = 2
+  val trp = 2
 
   /*
   ADDRESS MAPPING
@@ -164,8 +162,8 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   bank   := ocpMasterPort.Addr(26,25)
 
 
-  val initCounter    = Reg(init = Bits(initCycles))
-  val counter        = Reg(init = Bits(0))
+  val initCounter = Reg(init = Bits(initCycles))
+  val counter     = Reg(init = Bits(0))
 
   // Default value for signals
   memoryCmd := MemCmd.noOperation
@@ -188,9 +186,10 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   ramOut.we   := low        
   ramOut.cs   := high
 
-  val refreshRateAux    = 1000
-  val counterAux        = Reg(init = Bits(refreshRateAux))
-  val ledReg            = Reg(init = Bits(0))
+  // Code for using a led for real-time testing
+  val refreshRateAux = 1000
+  val counterAux     = Reg(init = Bits(refreshRateAux))
+  val ledReg         = Reg(init = Bits(0))
   ramOut.led := ledReg
   when(counterAux === Bits(1)) {
     ledReg(0) := ~ledReg(0)
