@@ -205,8 +205,6 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   val counterAux1 = Reg(init = Bits(0))
   val counterAux2 = Reg(init = Bits(0))
   val counterAux3 = Reg(init = Bits(0))
-  counterAux3 := counterAux3 - Bits(1) 
-
 
   // state machine for the ocp signal
   when(state === ControllerState.waitPll) {
@@ -214,7 +212,9 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
       state := ControllerState.initStart
     }
   }
-  .elsewhen(state === ControllerState.idle) {   
+  .elsewhen(state === ControllerState.idle) {  
+    counterAux3 := counterAux3 - Bits(1) 
+ 
     memoryCmd := MemCmd.noOperation               // When idle, the memory is in noOperation state
     refreshCounter := refreshCounter - Bits(1)    // Wait until refresh is needed
 
@@ -306,6 +306,7 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   } 
   
   .elsewhen(state === ControllerState.read) {
+    counterAux2 := counterAux2 - Bits(1)  // Temporal led test
     counter := counter - Bits(1)
 
     // Logic for interacting with OCP
@@ -326,7 +327,6 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
     // Logic for interacting with the SDRAM
     // Start read
     when(counter === Bits(tread)) {
-      counterAux2 := counterAux2 - Bits(1)  // Temporal led test
       memoryCmd := MemCmd.readWithAutoPrecharge
       ramOut.addr := column
       ramOut.ba := bank
@@ -485,7 +485,7 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   }
   when(counterAux2 <= Bits(1)) {
     ledReg(3) := ~ledReg(3)
-    counterAux2 := Bits(1000)
+    counterAux2 := Bits(40000000)
   }
   when(counterAux3 <= Bits(1)) {
     ledReg(4) := ~ledReg(4)
