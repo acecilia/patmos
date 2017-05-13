@@ -195,19 +195,17 @@ class SdramController(sdramAddrWidth: Int, sdramDataWidth: Int,
         state := ControllerState.refresh
     } 
 
-    .elsewhen(ocpCmd === OcpCmd.RD) {
+    .elsewhen(ocpCmd === OcpCmd.RD || ocpCmd === OcpCmd.WR) {
         ledReg(4) := high
-        // counterAux := counterAux - Bits(1)
         address := ocpMasterPort.Addr             // Save address for later use
-        tmpState := ControllerState.read          // Set future state
         
-        // activate row
-        memoryCmd := MemCmd.bankActivate        
-        ramOut.addr(12,0) := ocpMasterPort.Addr(12,0)
-        ramOut.ba := ocpMasterPort.Addr(24,23)
+        // Set state to jump to after activation
+        when(ocpCmd === OcpCmd.RD) {
+          tmpState := ControllerState.read 
+        }.elsewhen(ocpCmd === OcpCmd.WR) {
+          tmpState := ControllerState.write 
+        }
         
-        ocpSlavePort.CmdAccept := high            // send accept to ocp
-
         counter := Bits(trcd)                     // Prepare next state: activate
         state := ControllerState.activate         // Change to activate state
     }
