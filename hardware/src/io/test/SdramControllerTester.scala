@@ -57,6 +57,8 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
     refreshTest()
     activateTest()
     writeTest()
+    readTest()
+    
 
     def activateTest():Unit = {
         println("\nTesting activation:")
@@ -187,7 +189,7 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             expect(dut.state, 0x1)
     }
 
-    def readTest():Unit = {
+    def readTest2():Unit = {
             println("Testing read:")
             poke(ramIn.pllReady, 0x1)
         step(dut.initCycles+100)
@@ -300,6 +302,68 @@ class SdramControllerTester(dut: SdramController) extends Tester(dut) {
             expect(ramOut.we, 0x1)
             expect(ocpSlavePort.CmdAccept, 0x0)
             expect(dut.state, 0x1)
+    }
+
+    def readTest():Unit = {
+        val data = Array(0x25, 0x56, 0xAA, 0x32)
+
+        println("Testing read:")
+        println("\nWait until idle state:")
+        stepUntil(dut.state, ControllerState.idle, 100000)
+
+            println("\nOrder one read")
+            poke(ocpMasterPort.Cmd, OcpCmd.RD)
+            poke(ocpMasterPort.Addr, 0x5555554) // 10(bank)*1010101010101(row)*0101010101(column)*00(2 dummy bits from OCP)
+
+            expect(dut.state, ControllerState.idle)
+            expect(dut.memoryCmd, MemCmd.noOperation)
+
+        println("\nWait until read state (activation should happen, but we do not want to test it now):")
+        stepUntil(dut.state, ControllerState.read)
+            expect(ocpSlavePort.CmdAccept, 0x0)
+            expect(dut.state, ControllerState.read)
+            expect(ramOut.ba, 0x02) // 10 bank
+            expect(ramOut.addr, 0x555) // Column: 1(A10, auto-precharge)*0101010101
+            expect(ramOut.dqm, 0x0)
+            expect(dut.memoryCmd, MemCmd.readWithAutoPrecharge)
+        step(1)
+        println("\nCommand is accepted one clock cycle before first transmission:")
+            expect(ocpSlavePort.CmdAccept, 0x1)
+            expect(dut.state, ControllerState.read)
+            expect(ramOut.dqm, 0x0)
+            expect(dut.memoryCmd, MemCmd.noOperation)
+        step(1)
+        println("\nAfter Tcas, the data starts flowing to OCP:")
+            poke(ramIn.dq, data(0))
+            expect(ocpSlavePort.Data, data(0))
+            expect(ocpSlavePort.CmdAccept, 0x0)
+            expect(dut.state, ControllerState.read)
+            expect(ramOut.dqm, 0x0)
+            expect(dut.memoryCmd, MemCmd.noOperation)
+        step(1)
+        println("\nBurst stop is in the same clock cycle as the last transmission, Meanwhile, data continues flowing to OCP due to Tcas delay:")
+            poke(ramIn.dq, data(1))
+            expect(ocpSlavePort.Data, data(1))
+            expect(ocpSlavePort.CmdAccept, 0x0)
+            expect(dut.state, ControllerState.read)
+            expect(ramOut.dqm, 0x0)
+            expect(dut.memoryCmd, MemCmd.burstStop)
+        println("\nWait for precharge while data continues being sent to OCP:")
+        step(1)
+            poke(ramIn.dq, data(2))
+            expect(ocpSlavePort.Data, data(2))
+            expect(ocpSlavePort.CmdAccept, 0x0)
+            expect(dut.state, ControllerState.read)
+            expect(dut.memoryCmd, MemCmd.noOperation)
+        step(1)
+            poke(ramIn.dq, data(3))
+            expect(ocpSlavePort.Data, data(3))
+            expect(ocpSlavePort.CmdAccept, 0x0)
+            expect(dut.state, ControllerState.read)
+            expect(dut.memoryCmd, MemCmd.noOperation)
+        step(1)
+        println("\nGo back to idle:")
+            expect(dut.state, ControllerState.idle)
     }
 
     def writeTest():Unit = {
