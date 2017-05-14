@@ -205,6 +205,9 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   val counterAux1 = Reg(init = Bits(0))
   val counterAux2 = Reg(init = Bits(0))
   val counterAux3 = Reg(init = Bits(0))
+  val counterAux4 = Reg(init = Bits(0))
+  
+  refreshCounter := refreshCounter - Bits(1)    // Wait until refresh is needed
 
   // state machine for the ocp signal
   when(state === ControllerState.waitPll) {
@@ -216,9 +219,8 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
     counterAux3 := counterAux3 - Bits(1) 
  
     memoryCmd := MemCmd.noOperation               // When idle, the memory is in noOperation state
-    refreshCounter := refreshCounter - Bits(1)    // Wait until refresh is needed
 
-    when(refreshCounter <= Bits(1)) {            // Time to refresh, we use <= to be sure, in case the counter is negative
+    when(refreshCounter <= Bits(tread)) {            // Time to refresh, we use <= to be sure, in case the counter is negative
         counter := Bits(trc)                      // We have to wait Trc until coming back from auto-refresh
         state := ControllerState.refresh
     } 
@@ -382,19 +384,18 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
     *  banks must be precharged. */
     memoryCmd := MemCmd.prechargeAllBanks
     state := ControllerState.initRefresh
-    counter := high
+    counter := Bits(trc*2)
     
-  } .elsewhen(state === ControllerState.initRefresh) {
+  } .elsewhen (state === ControllerState.initRefresh) {
     /* at least two AUTO REFRESH cycles
     *  must be performed. */
-    memoryCmd := MemCmd.cbrAutoRefresh
-    when(counter===high) {
-        counter := counter - Bits(1)
-        state := ControllerState.initRefresh
-    } .otherwise {
-        state := ControllerState.initRegister
-    }
-  
+    when (counter === Bits(trc*2) || counter === Bits(trc-1))  { memoryCmd := MemCmd.cbrAutoRefresh } 
+    .otherwise { memoryCmd := MemCmd.noOperation }
+    
+    when (counter === Bits(0) ) { state := ControllerState.initRegister }  
+    .otherwise                  { state := ControllerState.initRefresh  }
+
+    counter := counter - Bits(1)
   } .elsewhen(state === ControllerState.initRegister) {
     /* The mode register should be loaded prior to applying
     * any operational command because it will power up in an
@@ -476,11 +477,11 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   MemCmd.setToPins(memoryCmd, io)
 
   when(counterAux1 <= Bits(1)) {
-    ledReg(5) := ~ledReg(5)
+    ledReg(4) := ~ledReg(4)
     counterAux1 := Bits(1000)
   }
     when(counterAux <= Bits(1)) {
-    ledReg(0) := ~ledReg(0)
+    ledReg(7) := ~ledReg(7)
     counterAux := Bits(128000)
   }
   when(counterAux2 <= Bits(1)) {
@@ -488,9 +489,13 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
     counterAux2 := Bits(40000000)
   }
   when(counterAux3 <= Bits(1)) {
-    ledReg(4) := ~ledReg(4)
+    ledReg(6) := ~ledReg(6)
     counterAux3 := Bits(80000000)
   }
+  when(counterAux4 <= Bits(1)) {
+    ledReg(5) := ~ledReg(5)
+    counterAux4 := Bits(80000000)
+  } .otherwise { counterAux4 := counterAux4 - Bits(1) }
 }
 
 // Memory controller internal states
