@@ -207,7 +207,6 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   val counterAux3 = Reg(init = Bits(0))
   val counterAux4 = Reg(init = Bits(0))
   
-  refreshCounter := refreshCounter - Bits(1)    // Wait until refresh is needed
 
   // state machine for the ocp signal
   when(state === ControllerState.waitPll) {
@@ -217,10 +216,11 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   }
   .elsewhen(state === ControllerState.idle) {  
     counterAux3 := counterAux3 - Bits(1) 
+    refreshCounter := refreshCounter - Bits(1)    // Wait until refresh is needed 
  
     memoryCmd := MemCmd.noOperation               // When idle, the memory is in noOperation state
 
-    when(refreshCounter <= Bits(tread)) {            // Time to refresh, we use <= to be sure, in case the counter is negative
+    when(refreshCounter <= Bits(1)) {            // Time to refresh, we use <= to be sure, in case the counter is negative
         counter := Bits(trc)                      // We have to wait Trc until coming back from auto-refresh
         state := ControllerState.refresh
     } 
