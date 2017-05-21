@@ -7,50 +7,50 @@ import patmos.Constants._
 
 // Memory controller internal states
 object ControllerState {
-    val waitPll = 0x00
-    val idle = 0x01 
-    val write = 0x02 
-    val read = 0x03 
-    val refresh = 0x04 
-    val activate = 0x05 
-    val initStart = 0x06
+    val waitPll       = 0x00
+    val idle          = 0x01
+    val write         = 0x02
+    val read          = 0x03
+    val refresh       = 0x04
+    val activate      = 0x05
+    val initStart     = 0x06
     val initPrecharge = 0x07
-    val initRefresh = 0x08 
-    val initRegister = 0x09
+    val initRefresh   = 0x08
+    val initRegister  = 0x09
 }
 
 // Memory commands
 object MemCmd {
-    val deviceDeselect = 0x00
-    val noOperation = 0x01
-    val burstStop = 0x02
-    val read = 0x03
-    val readWithAutoPrecharge = 0x04
-    val write = 0x05
+    val deviceDeselect         = 0x00
+    val noOperation            = 0x01
+    val burstStop              = 0x02
+    val read                   = 0x03
+    val readWithAutoPrecharge  = 0x04
+    val write                  = 0x05
     val writeWithAutoPrecharge = 0x06
-    val bankActivate = 0x07
-    val prechargeSelectBank = 0x08
-    val prechargeAllBanks = 0x09
-    val cbrAutoRefresh = 0x0A
-    val selfRefresh = 0x0B
-    val modeRegisterSet = 0x0C
+    val bankActivate           = 0x07
+    val prechargeSelectBank    = 0x08
+    val prechargeAllBanks      = 0x09
+    val cbrAutoRefresh         = 0x0A
+    val selfRefresh            = 0x0B
+    val modeRegisterSet        = 0x0C
 }
 
 // Memory controller internal states
 object OcpCmd {
     val IDLE = 0x00
-    val WR = 0x01 
-    val RD = 0x02 
+    val WR   = 0x01
+    val RD   = 0x02
 }
 
 // It is possible to avoid the default prints of poke, peek, execute and step by extending from Tester(dut, false) instead of Tester(dut)
 class SdramControllerTester(dut: SdramController) extends Tester(dut) {
     
     // Syntactic sugar
-    private val ramOut = dut.io.sdramControllerPins.ramOut
-    private val ramIn = dut.io.sdramControllerPins.ramIn
+    private val ramOut        = dut.io.sdramControllerPins.ramOut
+    private val ramIn         = dut.io.sdramControllerPins.ramIn
     private val ocpMasterPort = dut.io.ocp.M
-    private val ocpSlavePort = dut.io.ocp.S
+    private val ocpSlavePort  = dut.io.ocp.S
 
     poke(ramIn.pllReady, 1)
 
