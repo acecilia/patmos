@@ -226,12 +226,13 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
     }
   }
   .elsewhen(state === ControllerState.idle) {  
-    counterAux4 := counterAux4 - Bits(1) 
+    counterAux4 := counterAux4 - Bits(1)   // Temporal led test
  
     memoryCmd := MemCmd.noOperation               // When idle, the memory is in noOperation state
 
     when(refreshFlag === Bits(1)) {
         counterAux1 := counterAux1 - Bits(1)  // Temporal led test
+        
         counter := Bits(0) 
         refreshCounter := Bits(0) 
         state := ControllerState.refresh
@@ -288,6 +289,7 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
     // Start write
     when(counter === Bits(0)) {
       counterAux3 := counterAux3 - Bits(1)  // Temporal led test
+
       memoryCmd := MemCmd.writeWithAutoPrecharge
       ramOut.addr := column
       ramOut.ba := bank
@@ -312,7 +314,6 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   
   .elsewhen(state === ControllerState.read) {
     counter := counter + Bits(1)
-    counterAux2 := counterAux2 - Bits(1)  // Temporal led test
 
     // Logic for interacting with OCP
     // Do nothing until tcas has passed
@@ -332,6 +333,8 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
     // Logic for interacting with the SDRAM
     // Start read
     when(counter === Bits(0)) {
+      counterAux2 := counterAux2 - Bits(1)  // Temporal led test
+
       memoryCmd := MemCmd.readWithAutoPrecharge
       ramOut.addr := column
       ramOut.ba := bank
@@ -355,7 +358,6 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
       memoryCmd := MemCmd.noOperation 
 
       when(counter === Bits(tread - 1)) {
-        // counterAux2 := counterAux2 - Bits(1)  // Temporal led test
         state := ControllerState.idle
       }
     }
@@ -493,7 +495,7 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   }
   when(counterAux2 <= Bits(1)) { // Read
     ledReg(2) := ~ledReg(2)
-    counterAux2 := Bits(2)
+    counterAux2 := Bits(1000)
   }
   when(counterAux3 <= Bits(1)) { // Write
     ledReg(3) := ~ledReg(3)
