@@ -195,7 +195,7 @@ class SdramController(ocpBurstLen : Int) extends BurstDevice(SdramController.ocp
   ramOut.dqm  := Bits("b1111") 
   ramOut.addr := low        
   ramOut.ba   := low         
-  ramOut.cke  := low        
+  ramOut.cke  := high        
   ramOut.ras  := low        
   ramOut.cas  := low         
   ramOut.we   := low        
